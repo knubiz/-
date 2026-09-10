@@ -231,22 +231,6 @@
       font-weight: bold;
     }
 
-    .btn-complete {
-      background-color: #2563eb;
-      color: #fff;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .btn-complete:active {
-      background-color: #1d4ed8;
-    }
-
     .modal-footer {
       padding: 14px 16px;
       background-color: #1c1c1c;
@@ -267,6 +251,22 @@
 
     .btn-all-complete:active {
       background-color: #1b5e20;
+    }
+
+    .btn-complete {
+      background-color: #2563eb;
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-complete:active {
+      background-color: #1d4ed8;
     }
   </style>
 </head>
@@ -292,7 +292,7 @@
         <ul class="item-list" id="modal-item-list"></ul>
       </div>
       <div class="modal-footer">
-        <button class="btn-all-complete" onclick="completeAllItems()">테이블 전체 완료</button>
+        <button class="btn-all-complete" onclick="completeAllTableItems()">테이블 전체 완료</button>
       </div>
     </div>
   </div>
@@ -304,8 +304,8 @@
       REFRESH_INTERVAL: 4000
     };
 
-    let currentActiveOrders = {}; 
-    let selectedOrderId = null;   
+    let currentActiveOrders = {}; // 테이블번호별 병합된 주문 데이터
+    let selectedTableNum = null;   // 현재 모달에 열려있는 테이블 번호
 
     window.onload = function() {
       renderTableGrid();
@@ -353,6 +353,7 @@
     function processOrders(orders) {
       currentActiveOrders = {}; 
 
+      // 1. 전체 카드 초기화
       for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
         const box = document.getElementById(`table-box-${i}`);
         if (box) {
@@ -363,6 +364,7 @@
         }
       }
 
+      // 2. 주문 데이터를 테이블별로 병합(Merge)
       orders.forEach(order => {
         const rawTable = String(order.table || '');
         const match = rawTable.match(/\d+/);
@@ -374,30 +376,69 @@
             return !name.startsWith("인원") && !name.includes("인원수");
           });
 
-          const cleanedOrder = { ...order, items: validItems };
-          currentActiveOrders[tableNum] = cleanedOrder;
+          if (validItems.length === 0) return;
 
-          if (validItems.length > 0) {
-            const box = document.getElementById(`table-box-${tableNum}`);
-            if (box) box.classList.add('active');
-
-            const firstItem = validItems[0].name;
-            const totalQty = validItems.reduce((sum, item) => sum + parseInt(item.qty || 1, 10), 0);
-            const summaryText = validItems.length > 1 ? `${firstItem} 외 ${validItems.length - 1}건` : firstItem;
-
-            document.getElementById(`table-summary-${tableNum}`).innerText = summaryText;
-            document.getElementById(`table-time-${tableNum}`).innerText = `⏱ ${order.time}`;
-            document.getElementById(`table-badge-${tableNum}`).innerHTML = `<span class="item-count-badge">${totalQty}개 메뉴</span>`;
+          if (!currentActiveOrders[tableNum]) {
+            currentActiveOrders[tableNum] = {
+              table: tableNum,
+              firstTime: order.time,
+              orderNumbers: [order.orderNumber],
+              items: []
+            };
+          } else {
+            if (!currentActiveOrders[tableNum].orderNumbers.includes(order.orderNumber)) {
+              currentActiveOrders[tableNum].orderNumbers.push(order.orderNumber);
+            }
           }
+
+          // 메뉴 데이터 추가 (같은 메뉴는 수량 합산)
+          validItems.forEach(newItem => {
+            const qty = parseInt(newItem.qty || 1, 10);
+            const existingItem = currentActiveOrders[tableNum].items.find(
+              i => i.name === newItem.name
+            );
+
+            if (existingItem) {
+              existingItem.qty += qty;
+              existingItem.rowNums.push(newItem.rowNum);
+              if (!existingItem.orderIds.includes(order.orderNumber)) {
+                existingItem.orderIds.push(order.orderNumber);
+              }
+            } else {
+              currentActiveOrders[tableNum].items.push({
+                name: newItem.name,
+                qty: qty,
+                rowNums: [newItem.rowNum],
+                orderIds: [order.orderNumber]
+              });
+            }
+          });
         }
       });
 
-      if (selectedOrderId) {
-        const activeTableNum = Object.keys(currentActiveOrders).find(
-          t => currentActiveOrders[t].orderNumber === selectedOrderId
-        );
-        if (activeTableNum) {
-          renderModalContent(currentActiveOrders[activeTableNum]);
+      // 3. 화면 UI 업데이트
+      Object.keys(currentActiveOrders).forEach(tableNum => {
+        const tableData = currentActiveOrders[tableNum];
+        const items = tableData.items;
+
+        if (items.length > 0) {
+          const box = document.getElementById(`table-box-${tableNum}`);
+          if (box) box.classList.add('active');
+
+          const firstItem = items[0].name;
+          const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
+          const summaryText = items.length > 1 ? `${firstItem} 외 ${items.length - 1}건` : `${firstItem} ${items[0].qty}개`;
+
+          document.getElementById(`table-summary-${tableNum}`).innerText = summaryText;
+          document.getElementById(`table-time-${tableNum}`).innerText = `⏱ ${tableData.firstTime}`;
+          document.getElementById(`table-badge-${tableNum}`).innerHTML = `<span class="item-count-badge">${totalQty}개 메뉴</span>`;
+        }
+      });
+
+      // 열려있는 모달이 있으면 갱신
+      if (selectedTableNum) {
+        if (currentActiveOrders[selectedTableNum]) {
+          renderModalContent(currentActiveOrders[selectedTableNum]);
         } else {
           closeModal();
         }
@@ -405,43 +446,43 @@
     }
 
     function openModal(tableNum) {
-      const order = currentActiveOrders[tableNum];
-      if (!order || !order.items || order.items.length === 0) return;
+      const tableData = currentActiveOrders[tableNum];
+      if (!tableData || !tableData.items || tableData.items.length === 0) return;
 
-      selectedOrderId = order.orderNumber;
-      renderModalContent(order);
+      selectedTableNum = tableNum;
+      renderModalContent(tableData);
       document.getElementById('modal-overlay').classList.add('open');
     }
 
     function closeModal() {
-      selectedOrderId = null;
+      selectedTableNum = null;
       document.getElementById('modal-overlay').classList.remove('open');
     }
 
-    function renderModalContent(order) {
-      document.getElementById('modal-title').innerText = `테이블 ${order.table} (주문 #${order.orderNumber})`;
+    function renderModalContent(tableData) {
+      document.getElementById('modal-title').innerText = `테이블 ${tableData.table}`;
       const modalItemList = document.getElementById('modal-item-list');
       modalItemList.innerHTML = '';
 
-      const validItems = (order.items || []).filter(item => {
-        const name = String(item.name || '').trim();
-        return !name.startsWith("인원") && !name.includes("인원수");
-      });
-
-      if (validItems.length === 0) {
+      if (tableData.items.length === 0) {
         modalItemList.innerHTML = '<li class="item-card"><p style="color:#aaa; text-align:center;">출고할 메뉴가 없습니다.</p></li>';
         return;
       }
 
-      validItems.forEach(item => {
+      tableData.items.forEach(item => {
         const li = document.createElement('li');
         li.className = 'item-card';
+        
+        // rowNums와 orderIds 배열을 JSON 텍스트 형태로 변환하여 버튼 파라미터로 넘김
+        const rowNumsJson = JSON.stringify(item.rowNums);
+        const orderIdsJson = JSON.stringify(item.orderIds);
+
         li.innerHTML = `
           <div class="item-info">
             <span class="item-name">${item.name}</span>
             <span class="item-qty">${item.qty}개</span>
           </div>
-          <button class="btn-complete" onclick="completeSingleItem(${item.rowNum}, '${order.orderNumber}')">
+          <button class="btn-complete" onclick='completeMergedItem(${rowNumsJson}, ${orderIdsJson})'>
             ✔ 출고
           </button>
         `;
@@ -449,42 +490,45 @@
       });
     }
 
-    function completeSingleItem(rowNum, orderId) {
-      fetch(CONFIG.GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          action: 'completeItem',
-          rowNum: rowNum,
-          orderId: orderId
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          fetchKitchenOrders();
-        }
+    function completeMergedItem(rowNums, orderIds) {
+      // 해당 메뉴의 모든 rowNum을 순차적으로 출고 처리
+      const promises = rowNums.map((rowNum, idx) => {
+        return fetch(CONFIG.GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            action: 'completeItem',
+            rowNum: rowNum,
+            orderId: orderIds[idx] || orderIds[0]
+          })
+        });
       });
+
+      Promise.all(promises).then(() => {
+        fetchKitchenOrders();
+      }).catch(err => console.error("출고 오류:", err));
     }
 
-    function completeAllItems() {
-      if (!selectedOrderId) return;
+    function completeAllTableItems() {
+      if (!selectedTableNum || !currentActiveOrders[selectedTableNum]) return;
 
-      fetch(CONFIG.GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          action: 'completeCooking',
-          orderNumber: selectedOrderId
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          closeModal();
-          fetchKitchenOrders();
-        }
+      const orderNumbers = currentActiveOrders[selectedTableNum].orderNumbers;
+      
+      const promises = orderNumbers.map(orderNum => {
+        return fetch(CONFIG.GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            action: 'completeCooking',
+            orderNumber: orderNum
+          })
+        });
       });
+
+      Promise.all(promises).then(() => {
+        closeModal();
+        fetchKitchenOrders();
+      }).catch(err => console.error("전체 완료 오류:", err));
     }
   </script>
 </body>
