@@ -3,40 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>청춘주막 — 주방 주문 관리 시스템</title>
+  <title>청춘주막 — 테이블 포스(POS) 주방 시스템</title>
   <style>
     :root {
-      --bg-main: #fcf8f2;        /* 한지 느낌의 따뜻한 연아이보리 */
-      --card-bg: #ffffff;        /* 깔끔한 흰색 카드 */
-      --text-main: #2b2118;      /* 고풍스러운 짙은 먹색 */
-      --text-muted: #8c7a6b;     /* 차분한 브라운 톤 */
-      --border-color: #eee0d0;   /* 부드러운 테두리 */
-      --primary-color: #8b0000;  /* 전통 주막 느낌의 짙은 버건디/레드 */
-      --accent-yellow: #f59e0b;  /* 강조용 따뜻한 옐로우 */
-      --accent-green: #16a34a;   /* 조리완료용 친근한 초록 */
+      --bg-main: #22252a;         /* 포스기 느낌의 짙은 어두운 배경 */
+      --card-empty: #333740;      /* 빈 테이블 배경 */
+      --card-active: #8b0000;     /* 주문 있는 테이블 (버건디) */
+      --text-main: #ffffff;
+      --text-muted: #a0a5b1;
+      --border-color: #444955;
+      --accent-yellow: #f59e0b;
+      --accent-green: #16a34a;
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
     body {
       background-color: var(--bg-main);
       color: var(--text-main);
-      padding: 20px;
+      padding: 16px;
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 16px;
+      padding-bottom: 12px;
       border-bottom: 2px solid var(--border-color);
-      margin-bottom: 24px;
+      margin-bottom: 16px;
     }
 
     .title-group {
@@ -46,23 +48,20 @@
     }
 
     h1 {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 800;
-      color: var(--primary-color);
+      color: #fff;
     }
 
     .status-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      background-color: #fff;
-      color: var(--text-main);
-      padding: 6px 14px;
+      background-color: #2c3038;
+      color: var(--text-muted);
+      padding: 6px 12px;
       border-radius: 20px;
       font-size: 13px;
-      font-weight: 600;
-      border: 1px solid var(--border-color);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     }
 
     .status-dot {
@@ -75,100 +74,142 @@
     .controls {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
     }
 
     .refresh-info {
-      font-size: 14px;
+      font-size: 13px;
       color: var(--text-muted);
     }
 
     .btn {
-      background-color: var(--card-bg);
-      color: var(--text-main);
+      background-color: #3b404d;
+      color: #fff;
       border: 1px solid var(--border-color);
-      padding: 10px 18px;
-      border-radius: 10px;
+      padding: 8px 14px;
+      border-radius: 8px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-      transition: all 0.2s;
     }
 
-    .btn:hover {
-      background-color: #f7f1e8;
-    }
-
-    .btn-primary {
-      background-color: var(--primary-color);
-      border-color: var(--primary-color);
-      color: #fff;
-    }
-
-    .btn-primary:hover {
-      background-color: #6d0000;
-    }
-
-    .orders-grid {
+    /* 35개 테이블 그리드 레이아웃 */
+    .pos-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(7, 1fr); /* 7열 x 5행 = 35개 테이블 */
+      gap: 12px;
+      flex-grow: 1;
     }
 
-    .empty-state {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 80px 20px;
-      background-color: var(--card-bg);
-      border-radius: 20px;
-      border: 2px dashed var(--border-color);
+    @media (max-width: 1200px) {
+      .pos-grid {
+        grid-template-columns: repeat(5, 1fr); /* 모바일/태블릿용 5열 조정 */
+      }
     }
 
-    .empty-state h2 {
-      font-size: 20px;
-      color: var(--text-muted);
-      margin-bottom: 8px;
-    }
-
-    .order-card {
-      background-color: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 20px;
-      overflow: hidden;
+    .table-box {
+      background-color: var(--card-empty);
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-      transition: transform 0.2s, box-shadow 0.2s;
+      justify-content: space-between;
+      min-height: 110px;
+      cursor: pointer;
+      transition: transform 0.1s, border-color 0.2s;
+      position: relative;
     }
 
-    .card-header {
-      background-color: #f8f1e7;
+    .table-box:hover {
+      transform: translateY(-2px);
+      border-color: #666e80;
+    }
+
+    /* 주문이 들어온 활성화 테이블 */
+    .table-box.active {
+      background-color: var(--card-active);
+      border-color: #ff4d4d;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+
+    .table-num {
+      font-size: 20px;
+      font-weight: 900;
+    }
+
+    .table-time {
+      font-size: 12px;
+      color: #ffcccc;
+      font-weight: 600;
+    }
+
+    .table-summary {
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 8px;
+      line-height: 1.3;
+    }
+
+    .item-count-badge {
+      align-self: flex-end;
+      background-color: var(--accent-yellow);
+      color: #000;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    /* 상세 주문 팝업 모달 */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0, 0, 0, 0.75);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background-color: #2c3038;
+      width: 90%;
+      max-width: 480px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      border: 1px solid var(--border-color);
+    }
+
+    .modal-header {
+      background-color: var(--card-active);
       padding: 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid var(--border-color);
     }
 
-    .table-badge {
-      background-color: var(--primary-color);
-      color: #ffffff;
-      font-size: 18px;
+    .modal-title {
+      font-size: 20px;
       font-weight: 800;
-      padding: 6px 14px;
-      border-radius: 12px;
     }
 
-    .order-time {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-align: right;
+    .btn-close {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
     }
 
-    .card-body {
+    .modal-body {
       padding: 20px;
-      flex-grow: 1;
+      max-height: 400px;
+      overflow-y: auto;
     }
 
     .items-list {
@@ -186,77 +227,48 @@
       border-bottom: 1px dashed var(--border-color);
     }
 
-    .item-row:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
-
-    .item-info {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
     .item-name {
-      font-size: 19px;
+      font-size: 18px;
       font-weight: 700;
     }
 
     .item-qty {
       background-color: #fef3c7;
       color: #92400e;
-      border: 1px solid #fde68a;
       padding: 2px 8px;
-      border-radius: 8px;
-      font-size: 16px;
+      border-radius: 6px;
       font-weight: 700;
+      margin-left: 8px;
     }
 
-    /* 개별 메뉴 출고 버튼 */
     .btn-item-complete {
-      background-color: var(--primary-color);
-      color: #ffffff;
+      background-color: #2563eb;
+      color: #fff;
       border: none;
       padding: 8px 14px;
       border-radius: 8px;
       font-size: 14px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 2px 4px rgba(139, 0, 0, 0.15);
-      transition: background-color 0.2s;
     }
 
-    .btn-item-complete:hover {
-      background-color: #6d0000;
-    }
-
-    .btn-item-complete:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
-    }
-
-    .card-footer {
+    .modal-footer {
       padding: 16px;
-      background-color: #faf6f0;
-      border-top: 1px solid var(--border-color);
+      background-color: #22252a;
+      display: flex;
+      gap: 10px;
     }
 
-    .btn-complete {
-      width: 100%;
+    .btn-complete-all {
+      flex-grow: 1;
       background-color: var(--accent-green);
-      color: #ffffff;
+      color: #fff;
       border: none;
       padding: 14px;
-      border-radius: 12px;
-      font-size: 18px;
+      border-radius: 10px;
+      font-size: 16px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 3px 6px rgba(22, 163, 74, 0.2);
-      transition: background-color 0.2s;
-    }
-
-    .btn-complete:hover {
-      background-color: #15803d;
     }
   </style>
 </head>
@@ -264,104 +276,173 @@
 
   <header>
     <div class="title-group">
-      <h1>🍶 청춘주막 — 주방 주문 관리</h1>
+      <h1>🍶 청춘주막 — 테이블 포스(POS)</h1>
       <div class="status-badge">
         <span class="status-dot"></span>
-        실시간 자동 연동 중 (5초)
+        실시간 자동 연동 (5초)
       </div>
     </div>
     <div class="controls">
       <span class="refresh-info" id="last-update">최신화: 방금 전</span>
-      <button class="btn btn-primary" onclick="fetchKitchenOrders()">🔄 수동 새로고침</button>
+      <button class="btn" onclick="fetchKitchenOrders()">🔄 새로고침</button>
     </div>
   </header>
 
-  <main>
-    <div id="orders-container" class="orders-grid">
-      <!-- 주문 카드가 여기에 표시됩니다 -->
-    </div>
+  <!-- 35개 테이블 배치 영역 -->
+  <main class="pos-grid" id="pos-grid">
+    <!-- 자바스크립트로 35개 테이블이 자동 생성됩니다 -->
   </main>
+
+  <!-- 테이블 선택 시 나타나는 상세 팝업 모달 -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-table-title">테이블 0번</div>
+        <button class="btn-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <ul class="items-list" id="modal-item-list">
+          <!-- 선택한 테이블의 메뉴 목록이 들어갑니다 -->
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-complete-all" onclick="completeAllCurrentTable()">테이블 전체 완료</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const CONFIG = {
-      // 본인의 웹 앱 URL로 확인 및 유지해주세요
       SCRIPT_URL: "https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec",
-      REFRESH_INTERVAL: 5000 // 5초마다 새로고침
+      TOTAL_TABLES: 35, // 총 테이블 개수 (35개)
+      REFRESH_INTERVAL: 5000
     };
 
+    let currentActiveOrders = {}; // 현재 조리 중인 주문 데이터
+    let selectedOrderId = null;   // 팝업에서 선택된 주문ID
+
     window.addEventListener('DOMContentLoaded', () => {
+      initPosGrid();
       fetchKitchenOrders();
       setInterval(fetchKitchenOrders, CONFIG.REFRESH_INTERVAL);
     });
 
-    async function fetchKitchenOrders() {
-      if (!CONFIG.SCRIPT_URL || CONFIG.SCRIPT_URL.trim() === "") {
-        renderError("CONFIG.SCRIPT_URL 설정이 필요합니다.");
-        return;
+    // 1~35번 테이블 버튼 기본 생성
+    function initPosGrid() {
+      const grid = document.getElementById('pos-grid');
+      let html = '';
+      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+        html += `
+          <div class="table-box" id="table-box-${i}" onclick="openTableModal(${i})">
+            <div>
+              <div style="display:flex; justify-between; align-items:center;">
+                <span class="table-num">${i}</span>
+                <span class="table-time" id="table-time-${i}"></span>
+              </div>
+              <div class="table-summary" id="table-summary-${i}">빈 테이블</div>
+            </div>
+            <div id="table-badge-${i}"></div>
+          </div>
+        `;
       }
+      grid.innerHTML = html;
+    }
 
+    // 서버에서 주문 데이터 가져오기
+    async function fetchKitchenOrders() {
       try {
         const response = await fetch(`${CONFIG.SCRIPT_URL}?action=kitchen`);
         const data = await response.json();
 
         if (data.success) {
-          renderOrders(data.orders || []);
+          processOrders(data.orders || []);
           updateLastTime();
-        } else {
-          renderError("데이터 로드 실패: " + data.message);
         }
       } catch (error) {
-        console.error("네트워크 에러:", error);
-        renderError("서버와의 통신 오류가 발생했습니다.");
+        console.error("데이터 로드 에러:", error);
       }
     }
 
-    function renderOrders(orders) {
-      const container = document.getElementById('orders-container');
+    // 가져온 데이터를 35개 테이블 박스에 맵핑
+    function processOrders(orders) {
+      currentActiveOrders = {}; // 초기화
 
-      if (!orders || orders.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <h2>대기 중인 조리 주문이 없습니다 🍶</h2>
-            <p>시트에서 '상태'를 '확인'으로 변경하면 주방으로 표시됩니다.</p>
-          </div>
-        `;
-        return;
+      // 모든 테이블 초기 상태(빈 테이블)로 리셋
+      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+        const box = document.getElementById(`table-box-${i}`);
+        box.classList.remove('active');
+        document.getElementById(`table-summary-${i}`).innerText = '빈 테이블';
+        document.getElementById(`table-time-${i}`).innerText = '';
+        document.getElementById(`table-badge-${i}`).innerHTML = '';
       }
 
-      container.innerHTML = orders.map(order => {
-        return `
-          <div class="order-card" id="card-${order.orderNumber}">
-            <div class="card-header">
-              <div class="table-badge">테이블 ${order.table}</div>
-              <div class="order-time">⏱ ${order.time}</div>
-            </div>
-            <div class="card-body">
-              <ul class="items-list">
-                ${order.items.map(item => `
-                  <li class="item-row">
-                    <div class="item-info">
-                      <span class="item-name">${item.name}</span>
-                      <span class="item-qty">${item.qty}개</span>
-                    </div>
-                    <button class="btn-item-complete" onclick="completeItem(${item.rowNum}, '${order.orderNumber}', this)">
-                      ✔ 출고
-                    </button>
-                  </li>
-                `).join('')}
-              </ul>
-            </div>
-            <div class="card-footer">
-              <button class="btn-complete" onclick="completeAll('${order.orderNumber}')">
-                전체 완료
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
+      // 주문 데이터가 있는 테이블 업데이트
+      orders.forEach(order => {
+        // 테이블 번호 추출 (예: '테이블 5' -> 5 또는 '5' -> 5)
+        const tableNum = parseInt(String(order.table).replace(/[^0-9]/g, ''), 10);
+        
+        if (tableNum >= 1 && tableNum <= CONFIG.TOTAL_TABLES) {
+          currentActiveOrders[tableNum] = order;
+
+          const box = document.getElementById(`table-box-${tableNum}`);
+          box.classList.add('active');
+
+          const firstItem = order.items[0] ? order.items[0].name : '';
+          const totalQty = order.items.reduce((sum, item) => sum + parseInt(item.qty || 1, 10), 0);
+          
+          document.getElementById(`table-summary-${tableNum}`).innerText = 
+            order.items.length > 1 ? `${firstItem} 외 ${order.items.length - 1}건` : firstItem;
+            
+          document.getElementById(`table-time-${tableNum}`).innerText = `⏱ ${order.time}`;
+          document.getElementById(`table-badge-${tableNum}`).innerHTML = `<span class="item-count-badge">${totalQty}개 메뉴</span>`;
+        }
+      });
+
+      // 팝업 모달이 열려있는 동안 데이터가 갱신되면 팝업 화면도 즉시 업데이트
+      if (selectedOrderId) {
+        const activeTableNum = Object.keys(currentActiveOrders).find(
+          t => currentActiveOrders[t].orderNumber === selectedOrderId
+        );
+        if (activeTableNum) {
+          renderModalContent(currentActiveOrders[activeTableNum]);
+        } else {
+          closeModal(); // 해당 주문이 모두 출고 완료되었으면 팝업 닫기
+        }
+      }
     }
 
-    // 1. 개별 메뉴 출고 처리
+    // 테이블 클릭 시 상세 주문 팝업 열기
+    function openTableModal(tableNum) {
+      const order = currentActiveOrders[tableNum];
+      if (!order) return; // 빈 테이블 클릭 시 아무 동작 안함
+
+      selectedOrderId = order.orderNumber;
+      document.getElementById('modal-table-title').innerText = `테이블 ${tableNum} (주문 #${order.orderNumber})`;
+      renderModalContent(order);
+      document.getElementById('modal-overlay').classList.add('open');
+    }
+
+    function renderModalContent(order) {
+      const listContainer = document.getElementById('modal-item-list');
+      listContainer.innerHTML = order.items.map(item => `
+        <li class="item-row">
+          <div>
+            <span class="item-name">${item.name}</span>
+            <span class="item-qty">${item.qty}개</span>
+          </div>
+          <button class="btn-item-complete" onclick="completeItem(${item.rowNum}, '${order.orderNumber}', this)">
+            ✔ 출고
+          </button>
+        </li>
+      `).join('');
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('open');
+      selectedOrderId = null;
+    }
+
+    // 개별 메뉴 출고 처리
     async function completeItem(rowNum, orderId, btn) {
       btn.disabled = true;
       btn.innerText = "처리중..";
@@ -379,25 +460,21 @@
 
         const data = await response.json();
         if (data.success) {
-          fetchKitchenOrders(); // 성공 시 새로고침
+          fetchKitchenOrders();
         } else {
           alert('처리 실패: ' + data.message);
           btn.disabled = false;
-          btn.innerText = "✔ 출고";
         }
       } catch (error) {
-        alert('서버 통신 에러가 발생했습니다.');
+        alert('서버 에러가 발생했습니다.');
         btn.disabled = false;
-        btn.innerText = "✔ 출고";
       }
     }
 
-    // 2. 주문 전체 완료 처리
-    async function completeAll(orderId) {
-      if (!confirm('이 주문의 모든 메뉴를 완료 처리하시겠습니까?')) return;
-
-      const card = document.getElementById(`card-${orderId}`);
-      if (card) card.style.opacity = '0.4';
+    // 테이블 전체 완료 처리
+    async function completeAllCurrentTable() {
+      if (!selectedOrderId) return;
+      if (!confirm('이 테이블의 모든 주문을 완료 처리하시겠습니까?')) return;
 
       try {
         const response = await fetch(CONFIG.SCRIPT_URL, {
@@ -405,34 +482,23 @@
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
             action: 'completeCooking',
-            orderId: orderId
+            orderId: selectedOrderId
           })
         });
 
         const data = await response.json();
         if (data.success) {
+          closeModal();
           fetchKitchenOrders();
-        } else {
-          alert('처리 실패: ' + data.message);
-          if (card) card.style.opacity = '1';
         }
       } catch (error) {
         alert('서버 에러가 발생했습니다.');
-        if (card) card.style.opacity = '1';
       }
     }
 
     function updateLastTime() {
       const now = new Date();
       document.getElementById('last-update').innerText = `최신화: ${now.toLocaleTimeString('ko-KR')}`;
-    }
-
-    function renderError(msg) {
-      document.getElementById('orders-container').innerHTML = `
-        <div class="empty-state" style="border-color: var(--primary-color);">
-          <h2 style="color: var(--primary-color);">${msg}</h2>
-        </div>
-      `;
     }
   </script>
 </body>
