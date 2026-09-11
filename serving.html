@@ -1,462 +1,738 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>무한해적상회 - 주문 관리 (주방/서빙)</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>무한해적상회 - 주방 KDS</title>
 
-<!-- Google Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 
-<!-- Tailwind CDN -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          paper: '#F5EFDD',
-          ink: '#26221C',
-          flag: '#C23B22',
-          flagdark: '#9E2E19',
-          gold: '#C89B3C',
-          night: '#1F2A3C',
-          nightlight: '#2E3E56',
-          soju: '#4C7A5A',
-        },
-        fontFamily: {
-          display: ['"Black Han Sans"', 'sans-serif'],
-          body: ['"Noto Sans KR"', 'sans-serif'],
-        },
-        boxShadow: {
-          card: '0 2px 10px rgba(38,34,28,0.08)',
-          lift: '0 8px 24px rgba(38,34,28,0.18)',
+  <style>
+    :root {
+      --bg-paper: #F5EFDD;
+      --text-ink: #26221C;
+      --flag-red: #C23B22;
+      --flag-dark: #9E2E19;
+      --accent-gold: #C89B3C;
+      --night-dark: #1F2A3C;
+      --night-card: #2B3A52;
+      --warn-orange: #D97706;
+      --status-green: #2563EB;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Noto Sans KR', sans-serif;
+      word-break: keep-all;
+    }
+
+    body {
+      background-color: var(--bg-paper);
+      color: var(--text-ink);
+      padding: 16px;
+      user-select: none;
+      min-height: 100vh;
+    }
+
+    /* ============ 헤더 (버건디 깃발 & 물결 가장자리) ============ */
+    .header {
+      position: relative;
+      background-color: var(--flag-red);
+      color: #F5EFDD;
+      padding: 16px 20px 22px 20px;
+      margin-bottom: 20px;
+      border-radius: 12px 12px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(38,34,28,0.15);
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: -8px;
+      height: 10px;
+      background: linear-gradient(-45deg, transparent 5px, var(--flag-red) 5px), 
+                  linear-gradient(45deg, transparent 5px, var(--flag-red) 5px);
+      background-size: 12px 12px;
+      background-repeat: repeat-x;
+    }
+
+    .header-title-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header-sub {
+      font-size: 0.7rem;
+      letter-spacing: 1px;
+      opacity: 0.8;
+      margin-bottom: 2px;
+    }
+
+    .header h1 {
+      font-family: 'Black Han Sans', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: 0.5px;
+      color: #FFF;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-filter-warning {
+      background-color: rgba(255, 255, 255, 0.15);
+      color: #FFF;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-filter-warning.active {
+      background-color: var(--night-dark);
+      color: var(--accent-gold);
+      border-color: var(--accent-gold);
+    }
+
+    .status {
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #34D399;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 6px #34D399;
+    }
+
+    /* ============ 그리드 & 테이블 카드 ============ */
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .grid-container {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 6px;
+      }
+    }
+
+    .table-card {
+      background-color: #FFFFFF;
+      border: 1.5px solid rgba(38,34,28,0.12);
+      border-radius: 12px;
+      padding: 10px 8px;
+      min-height: 105px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      box-shadow: 0 2px 8px rgba(38,34,28,0.06);
+    }
+
+    .table-card.active {
+      background-color: #FFFDF7;
+      border: 2px solid var(--flag-red);
+      box-shadow: 0 4px 14px rgba(194,59,34,0.18);
+    }
+
+    /* 30분 이상 경과 (주황) */
+    .table-card.warning-near {
+      border: 2px solid var(--warn-orange) !important;
+      background-color: #FFFDF5 !important;
+      box-shadow: 0 0 10px rgba(217, 119, 6, 0.25);
+    }
+
+    /* 1시간 이상 경과 (레드 점멸) */
+    .table-card.warning-over {
+      background-color: #FFF5F5 !important;
+      border: 2px solid var(--flag-red) !important;
+      animation: blink-border 1.2s infinite alternate;
+    }
+
+    @keyframes blink-border {
+      0% { box-shadow: 0 0 4px var(--flag-red); border-color: var(--flag-red); }
+      100% { box-shadow: 0 0 16px var(--flag-red); border-color: #E53E3E; }
+    }
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .table-num {
+      font-family: 'Black Han Sans', sans-serif;
+      font-size: 1.15rem;
+      color: var(--text-ink);
+      opacity: 0.4;
+    }
+
+    .table-card.active .table-num {
+      color: var(--flag-red);
+      opacity: 1;
+    }
+
+    .table-time {
+      font-size: 0.7rem;
+      color: #718096;
+      text-align: right;
+    }
+
+    .elapsed-time {
+      display: block;
+      font-weight: 700;
+      font-size: 0.75rem;
+      margin-top: 1px;
+    }
+    .elapsed-time.over { color: var(--flag-red); }
+    .elapsed-time.near { color: var(--warn-orange); }
+
+    .table-summary {
+      font-size: 0.8rem;
+      color: #A0AEC0;
+      margin-top: 4px;
+      line-height: 1.25;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-all;
+    }
+
+    .table-card.active .table-summary {
+      color: var(--text-ink);
+      font-weight: 700;
+    }
+
+    .badge-group {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      margin-top: 6px;
+    }
+
+    .item-count-badge {
+      background-color: var(--flag-red);
+      color: #FFF;
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+
+    .over-time-badge {
+      background-color: var(--flag-dark);
+      color: #FFF;
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-weight: 700;
+      animation: blink-text 1s infinite alternate;
+    }
+
+    @keyframes blink-text {
+      0% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+
+    /* ============ 모달 스티일 ============ */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(31, 42, 60, 0.65);
+      backdrop-filter: blur(2px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-content {
+      background-color: #FFFFFF;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 440px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 12px 32px rgba(38,34,28,0.25);
+      border: 1px solid rgba(38,34,28,0.1);
+    }
+
+    .modal-header {
+      background-color: var(--flag-red);
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #FFF;
+    }
+
+    .modal-title {
+      font-family: 'Black Han Sans', sans-serif;
+      font-size: 1.25rem;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-close {
+      background: none;
+      border: none;
+      color: #FFF;
+      font-size: 1.5rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 18px;
+      overflow-y: auto;
+      flex: 1;
+      background-color: #FAF6ED;
+    }
+
+    .item-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .item-card {
+      background-color: #FFFFFF;
+      padding: 12px 14px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid rgba(38,34,28,0.08);
+      box-shadow: 0 2px 4px rgba(38,34,28,0.03);
+    }
+
+    .item-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .item-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-ink);
+    }
+
+    .item-qty {
+      background-color: var(--bg-paper);
+      color: var(--flag-red);
+      font-family: 'Black Han Sans', sans-serif;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    .modal-footer {
+      padding: 14px 16px;
+      background-color: #FFFFFF;
+      border-top: 1px solid rgba(38,34,28,0.08);
+    }
+
+    .btn-all-complete {
+      width: 100%;
+      background-color: var(--flag-red);
+      color: #FFF;
+      border: none;
+      padding: 13px;
+      border-radius: 10px;
+      font-family: 'Black Han Sans', sans-serif;
+      font-size: 1.05rem;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(194,59,34,0.25);
+      transition: background-color 0.2s;
+    }
+
+    .btn-all-complete:hover {
+      background-color: var(--flag-dark);
+    }
+
+    .btn-complete {
+      background-color: var(--night-dark);
+      color: var(--accent-gold);
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .btn-complete:hover {
+      background-color: #2E3E56;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-title-group">
+      <span class="header-sub">2026 7단대 연합축제 · Master7iece</span>
+      <h1>☠️ 무한해적상회 주방 KDS</h1>
+    </div>
+    <div class="header-controls">
+      <button class="btn-filter-warning" id="btn-filter" onclick="toggleOverTimeFilter()">⚠️ 1시간 초과만 보기</button>
+      <div class="status">
+        <span class="status-dot"></span>
+        <span id="sync-status">연결 중...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-container" id="grid-container"></div>
+
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-title">테이블 0</div>
+        <button class="btn-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="modal-time-info" style="font-size:0.85rem; color:var(--warn-orange); margin-bottom:12px; font-weight:700;"></div>
+        <ul class="item-list" id="modal-item-list"></ul>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-all-complete" onclick="completeAllTableItems()">테이블 전체 완료</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CONFIG = {
+      GAS_URL: 'https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec', 
+      TOTAL_TABLES: 35,
+      REFRESH_INTERVAL: 4000,
+      WARN_MINUTES_NEAR: 30,  // 30분 경과 시 주황불
+      WARN_MINUTES_OVER: 60   // 1시간 경과 시 빨간불
+    };
+
+    let currentActiveOrders = {};
+    let selectedTableNum = null;
+    let isFilterOverTime = false;
+
+    window.onload = function() {
+      renderTableGrid();
+      fetchKitchenOrders();
+      setInterval(fetchKitchenOrders, CONFIG.REFRESH_INTERVAL);
+      setInterval(updateTimesUI, 10000);
+    };
+
+    function renderTableGrid() {
+      const container = document.getElementById('grid-container');
+      container.innerHTML = '';
+
+      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+        const card = document.createElement('div');
+        card.className = 'table-card';
+        card.id = `table-box-${i}`;
+        card.onclick = () => openModal(i);
+
+        card.innerHTML = `
+          <div class="table-header">
+            <span class="table-num">${i}</span>
+            <div class="table-time" id="table-time-${i}"></div>
+          </div>
+          <div class="table-summary" id="table-summary-${i}">빈 테이블</div>
+          <div class="badge-group" id="table-badge-${i}"></div>
+        `;
+        container.appendChild(card);
+      }
+    }
+
+    function fetchKitchenOrders() {
+      fetch(`${CONFIG.GAS_URL}?action=kitchen`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.orders) {
+            processOrders(data.orders);
+            document.getElementById('sync-status').innerText = '실시간 수신 중';
+          }
+        })
+        .catch(err => {
+          console.error('주문 불러오기 오류:', err);
+          document.getElementById('sync-status').innerText = '연결 확인 필요';
+        });
+    }
+
+    function parseOrderDate(timeStr) {
+      if (!timeStr) return new Date();
+      const now = new Date();
+      const parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        now.setHours(parseInt(parts[0], 10));
+        now.setMinutes(parseInt(parts[1], 10));
+        now.setSeconds(0);
+      }
+      return now;
+    }
+
+    function processOrders(orders) {
+      currentActiveOrders = {}; 
+
+      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+        const box = document.getElementById(`table-box-${i}`);
+        if (box) {
+          box.className = 'table-card';
+          document.getElementById(`table-summary-${i}`).innerText = '빈 테이블';
+          document.getElementById(`table-time-${i}`).innerText = '';
+          document.getElementById(`table-badge-${i}`).innerHTML = '';
+        }
+      }
+
+      orders.forEach(order => {
+        const rawTable = String(order.table || '');
+        const match = rawTable.match(/\d+/);
+        const tableNum = match ? parseInt(match[0], 10) : null;
+        
+        if (tableNum && tableNum >= 1 && tableNum <= CONFIG.TOTAL_TABLES) {
+          const validItems = (order.items || []).filter(item => {
+            const name = String(item.name || '').trim();
+            return !name.startsWith("인원") && !name.includes("인원수");
+          });
+
+          if (validItems.length === 0) return;
+
+          if (!currentActiveOrders[tableNum]) {
+            currentActiveOrders[tableNum] = {
+              table: tableNum,
+              firstTimeStr: order.time,
+              firstTimeObj: parseOrderDate(order.time),
+              orderNumbers: [order.orderNumber],
+              items: []
+            };
+          } else {
+            if (!currentActiveOrders[tableNum].orderNumbers.includes(order.orderNumber)) {
+              currentActiveOrders[tableNum].orderNumbers.push(order.orderNumber);
+            }
+          }
+
+          validItems.forEach(newItem => {
+            const qty = parseInt(newItem.qty || 1, 10);
+            const existingItem = currentActiveOrders[tableNum].items.find(i => i.name === newItem.name);
+
+            if (existingItem) {
+              existingItem.qty += qty;
+              existingItem.rowNums.push(newItem.rowNum);
+              if (!existingItem.orderIds.includes(order.orderNumber)) {
+                existingItem.orderIds.push(order.orderNumber);
+              }
+            } else {
+              currentActiveOrders[tableNum].items.push({
+                name: newItem.name,
+                qty: qty,
+                rowNums: [newItem.rowNum],
+                orderIds: [order.orderNumber]
+              });
+            }
+          });
+        }
+      });
+
+      updateTimesUI();
+
+      if (selectedTableNum) {
+        if (currentActiveOrders[selectedTableNum]) {
+          renderModalContent(currentActiveOrders[selectedTableNum]);
+        } else {
+          closeModal();
         }
       }
     }
-  }
-</script>
 
-<style>
-  body { font-family: 'Noto Sans KR', sans-serif; word-break: keep-all; }
-  .font-display { font-family: 'Black Han Sans', sans-serif; letter-spacing: 0.5px; }
-  ::-webkit-scrollbar { display: none; }
-  * { -ms-overflow-style: none; scrollbar-width: none; }
+    function updateTimesUI() {
+      const now = new Date();
 
-  .flag-edge::after {
-    content: '';
-    position: absolute;
-    left: 0; right: 0; bottom: -6px;
-    height: 8px;
-    background: linear-gradient(-45deg, transparent 4px, inherit 4px), linear-gradient(45deg, transparent 4px, inherit 4px);
-    background-size: 10px 10px;
-    background-repeat: repeat-x;
-  }
+      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+        const box = document.getElementById(`table-box-${i}`);
+        const tableData = currentActiveOrders[i];
 
-  @keyframes toastIn {
-    0% { transform: translate(-50%, 20px); opacity: 0; }
-    15% { transform: translate(-50%, 0); opacity: 1; }
-    85% { transform: translate(-50%, 0); opacity: 1; }
-    100% { transform: translate(-50%, 20px); opacity: 0; }
-  }
-  .toast-anim { animation: toastIn 1.8s ease-in-out both; }
+        if (!tableData || !tableData.items || tableData.items.length === 0) {
+          if (box) box.style.display = isFilterOverTime ? 'none' : 'flex';
+          continue;
+        }
 
-  @keyframes pulseSubtle {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-  }
-  .pulse-new { animation: pulseSubtle 1.5s infinite; }
-</style>
-</head>
+        const diffMs = now - tableData.firstTimeObj;
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const hours = Math.floor(diffMinutes / 60);
+        const mins = diffMinutes % 60;
+        const formattedElapsed = `${hours > 0 ? hours + '시간 ' : ''}${mins}분 경과`;
 
-<body class="bg-paper text-ink min-h-screen pb-12">
+        box.classList.add('active');
+        box.classList.remove('warning-near', 'warning-over');
 
-<!-- ============ 헤더 ============ -->
-<header class="relative bg-flag flag-edge text-paper pt-5 pb-6 px-4 mb-4">
-  <div class="max-w-6xl mx-auto flex items-center justify-between gap-3">
-    <div>
-      <p class="text-[10px] tracking-widest text-paper/70 mb-0.5">2026 7단대 연합축제 · Master7iece</p>
-      <h1 class="font-display text-xl sm:text-2xl leading-snug">☠️ 무한해적상회 주문 관리</h1>
-    </div>
-    <div class="flex items-center gap-2">
-      <button id="sound-toggle-btn" class="bg-paper/20 hover:bg-paper/30 text-paper font-bold text-xs px-3 py-2 rounded-lg transition-colors flex items-center gap-1">
-        <span id="sound-icon">🔊</span> <span id="sound-text">소리 켜짐</span>
-      </button>
-      <button id="refresh-btn" class="bg-night text-paper font-bold text-xs px-3 py-2 rounded-lg shadow-card hover:bg-nightlight transition-colors">
-        🔄 새로고침
-      </button>
-    </div>
-  </div>
-</header>
+        let isOver = false;
+        let elapsedClass = '';
 
-<!-- ============ 메인 컨테이너 ============ -->
-<main class="max-w-6xl mx-auto px-4 space-y-4">
+        if (diffMinutes >= CONFIG.WARN_MINUTES_OVER) {
+          box.classList.add('warning-over');
+          elapsedClass = 'over';
+          isOver = true;
+        } else if (diffMinutes >= CONFIG.WARN_MINUTES_NEAR) {
+          box.classList.add('warning-near');
+          elapsedClass = 'near';
+        }
 
-  <!-- 필터 탭 & 요약 통계 -->
-  <section class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl shadow-card">
-    <div id="filter-tabs" class="flex gap-1.5 overflow-x-auto">
-      <button data-status="ALL" class="filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-flag text-paper">전체</button>
-      <button data-status="ORDERED" class="filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-transparent text-ink/50 border border-ink/15">주문접수</button>
-      <button data-status="COOKED" class="filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-transparent text-ink/50 border border-ink/15">조리완료</button>
-      <button data-status="SERVED" class="filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-transparent text-ink/50 border border-ink/15">서빙완료</button>
-    </div>
-    <div class="text-xs text-ink/60 font-bold flex gap-3 self-end sm:self-center">
-      <span>대기 중: <strong id="count-pending" class="text-flag font-display text-sm">0</strong>건</span>
-      <span>|</span>
-      <span>총 주문: <strong id="count-total" class="font-display text-sm">0</strong>건</span>
-    </div>
-  </section>
+        if (isFilterOverTime && !isOver) {
+          box.style.display = 'none';
+        } else {
+          box.style.display = 'flex';
+        }
 
-  <!-- 주문 카드 리스트 Grid -->
-  <section id="orders-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    <!-- 주문 카드가 동적으로 삽입됩니다 -->
-  </section>
+        const firstItem = tableData.items[0].name;
+        const totalQty = tableData.items.reduce((sum, item) => sum + item.qty, 0);
+        const summaryText = tableData.items.length > 1 
+          ? `${firstItem} 외 ${tableData.items.length - 1}건` 
+          : `${firstItem} ${tableData.items[0].qty}개`;
 
-  <!-- 주문 없음 표시 -->
-  <div id="empty-state" class="hidden py-16 text-center">
-    <p class="text-4xl mb-2">🍺</p>
-    <p class="font-display text-lg text-ink/60">접수된 주문이 없습니다</p>
-  </div>
-</main>
+        document.getElementById(`table-summary-${i}`).innerText = summaryText;
+        document.getElementById(`table-time-${i}`).innerHTML = `
+          <span>주문: ${tableData.firstTimeStr}</span>
+          <span class="elapsed-time ${elapsedClass}">⏱ ${formattedElapsed}</span>
+        `;
 
-<!-- ============ 토스트 알림 ============ -->
-<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-ink text-paper text-xs font-bold px-4 py-2.5 rounded-full shadow-lift whitespace-nowrap"></div>
-
-<script>
-/* =========================================================
-   설정값 — 백엔드 URL
-   ========================================================= */
-const CONFIG = {
-  SCRIPT_URL: "https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec",
-  POLLING_INTERVAL: 5000,
-};
-
-/* =========================================================
-   상태 관리
-   ========================================================= */
-const state = {
-  orders: [],
-  currentFilter: 'ALL',
-  soundEnabled: true,
-  knownOrderIds: new Set(),
-  isFirstLoad: true,
-};
-
-const $ = (id) => document.getElementById(id);
-const won = (n) => Number(n || 0).toLocaleString('ko-KR') + '원';
-
-/* 오디오 알림음 */
-function playAlertSound() {
-  if (!state.soundEnabled) return;
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
-  } catch (e) {
-    console.error("Audio error", e);
-  }
-}
-
-/* =========================================================
-   초기화 및 데이터 로드 (순수 GET 요청)
-   ========================================================= */
-async function init() {
-  bindEvents();
-  await fetchOrders();
-  setInterval(fetchOrders, CONFIG.POLLING_INTERVAL);
-}
-
-async function fetchOrders() {
-  try {
-    const res = await fetch(CONFIG.SCRIPT_URL);
-    const rawData = await res.json();
-    
-    let newOrders = [];
-    if (Array.isArray(rawData)) {
-      newOrders = rawData;
-    } else if (rawData.orders && Array.isArray(rawData.orders)) {
-      newOrders = rawData.orders;
-    } else if (rawData.data && Array.isArray(rawData.data)) {
-      newOrders = rawData.data;
-    }
-
-    if (!state.isFirstLoad) {
-      const hasNew = newOrders.some(o => {
-        const id = getOrderId(o);
-        const status = mapStatusKey(getRawStatus(o));
-        return !state.knownOrderIds.has(id) && status === 'ORDERED';
-      });
-      if (hasNew) {
-        playAlertSound();
-        showToast("🔔 새로운 주문이 들어왔습니다!");
+        let badgeHtml = `<span class="item-count-badge">${totalQty}개 메뉴</span>`;
+        if (isOver) {
+          badgeHtml += `<span class="over-time-badge">🚨 1시간 지연</span>`;
+        }
+        document.getElementById(`table-badge-${i}`).innerHTML = badgeHtml;
       }
     }
 
-    state.orders = newOrders;
-    state.knownOrderIds = new Set(newOrders.map(o => getOrderId(o)));
-    state.isFirstLoad = false;
-
-    renderOrders();
-  } catch (err) {
-    console.error("Fetch Error:", err);
-    showToast("주문 데이터를 불러오는데 실패했습니다");
-  }
-}
-
-function getOrderId(order) {
-  return String(order.orderNumber || order.id || order.no || order.orderId || '');
-}
-
-function getRawStatus(order) {
-  return order.status || order.state || order.condition || order['상태'] || '';
-}
-
-/* =========================================================
-   주문 목록 렌더링
-   ========================================================= */
-function renderOrders() {
-  const grid = $('orders-grid');
-  grid.innerHTML = '';
-
-  let filtered = state.orders;
-  if (state.currentFilter !== 'ALL') {
-    filtered = state.orders.filter(o => mapStatusKey(getRawStatus(o)) === state.currentFilter);
-  }
-
-  const pendingCount = state.orders.filter(o => mapStatusKey(getRawStatus(o)) === 'ORDERED').length;
-  $('count-pending').textContent = pendingCount;
-  $('count-total').textContent = state.orders.length;
-
-  if (filtered.length === 0) {
-    $('empty-state').classList.remove('hidden');
-    return;
-  }
-  $('empty-state').classList.add('hidden');
-
-  filtered.sort((a, b) => new Date(b.createdAt || b.time || 0) - new Date(a.createdAt || a.time || 0));
-
-  filtered.forEach(order => {
-    const orderId = getOrderId(order);
-    const statusKey = mapStatusKey(getRawStatus(order));
-    const tableNum = order.table || order.tableNo || order.tableNumber || '-';
-    const totalAmt = order.totalAmount || order.totalPrice || order.total || 0;
-    const timeStr = formatTime(order.createdAt || order.time || order.timestamp);
-
-    let itemsList = [];
-    if (Array.isArray(order.items)) {
-      itemsList = order.items;
-    } else if (typeof order.items === 'string') {
-      try { itemsList = JSON.parse(order.items); } catch(e) { itemsList = [{ name: order.items, qty: 1 }]; }
-    } else if (order.menu) {
-      itemsList = [{ name: order.menu, qty: order.qty || 1 }];
+    function toggleOverTimeFilter() {
+      isFilterOverTime = !isFilterOverTime;
+      const btn = document.getElementById('btn-filter');
+      btn.classList.toggle('active', isFilterOverTime);
+      btn.innerText = isFilterOverTime ? '📋 전체 보기' : '⚠️ 1시간 지연만 보기';
+      updateTimesUI();
     }
 
-    let statusStyle = "";
-    let badgeStyle = "";
-    let badgeText = "";
+    function openModal(tableNum) {
+      const tableData = currentActiveOrders[tableNum];
+      if (!tableData || !tableData.items || tableData.items.length === 0) return;
 
-    if (statusKey === 'ORDERED') {
-      statusStyle = "border-2 border-flag bg-white pulse-new";
-      badgeStyle = "bg-flag text-paper";
-      badgeText = "주문접수";
-    } else if (statusKey === 'COOKED') {
-      statusStyle = "border-2 border-gold bg-white";
-      badgeStyle = "bg-gold text-ink font-bold";
-      badgeText = "조리완료";
-    } else {
-      statusStyle = "border border-ink/10 bg-white/60 opacity-75";
-      badgeStyle = "bg-night/20 text-ink/60";
-      badgeText = "서빙완료";
+      selectedTableNum = tableNum;
+      renderModalContent(tableData);
+      document.getElementById('modal-overlay').classList.add('open');
     }
 
-    const card = document.createElement('div');
-    card.className = `rounded-xl shadow-card p-4 flex flex-col justify-between transition-all ${statusStyle}`;
+    function closeModal() {
+      selectedTableNum = null;
+      document.getElementById('modal-overlay').classList.remove('open');
+    }
 
-    const itemsHtml = itemsList.map(item => `
-      <div class="flex justify-between items-center text-sm py-1 border-b border-ink/5 last:border-0">
-        <span class="font-bold text-ink">${escapeHtml(item.name || item.menuName || '')}</span>
-        <span class="font-display text-flag ml-2">x${item.qty || item.count || 1}</span>
-      </div>
-    `).join('');
+    function renderModalContent(tableData) {
+      const now = new Date();
+      const diffMs = now - tableData.firstTimeObj;
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-    card.innerHTML = `
-      <div>
-        <div class="flex items-center justify-between pb-2 mb-2 border-b border-ink/10">
-          <div class="flex items-center gap-2">
-            <span class="bg-night text-gold font-display text-lg px-2.5 py-0.5 rounded-lg">
-              테이블 ${tableNum}
-            </span>
-            <span class="text-xs text-ink/40 font-mono">#${orderId}</span>
+      document.getElementById('modal-title').innerText = `테이블 ${tableData.table}`;
+      document.getElementById('modal-time-info').innerText = `최초 주문: ${tableData.firstTimeStr} (조리 지연: ${diffMinutes}분 경과)`;
+
+      const modalItemList = document.getElementById('modal-item-list');
+      modalItemList.innerHTML = '';
+
+      tableData.items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'item-card';
+        
+        const rowNumsJson = JSON.stringify(item.rowNums);
+        const orderIdsJson = JSON.stringify(item.orderIds);
+
+        li.innerHTML = `
+          <div class="item-info">
+            <span class="item-name">${item.name}</span>
+            <span class="item-qty">${item.qty}개</span>
           </div>
-          <span class="text-xs font-bold px-2 py-1 rounded-md ${badgeStyle}">
-            ${badgeText}
-          </span>
-        </div>
-
-        <div class="space-y-0.5 my-3">
-          ${itemsHtml}
-        </div>
-      </div>
-
-      <div class="pt-3 mt-2 border-t border-ink/10">
-        <div class="flex justify-between items-center mb-3 text-xs text-ink/60">
-          <span>총 금액: <strong class="text-ink font-bold text-sm">${won(totalAmt)}</strong></span>
-          <span>${timeStr}</span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2">
-          ${renderActionButtons(orderId, statusKey)}
-        </div>
-      </div>
-    `;
-
-    grid.appendChild(card);
-  });
-}
-
-/* 시트의 다양한 상태값을 흡수하는 맵핑 함수 */
-function mapStatusKey(status) {
-  if (!status) return 'ORDERED';
-  const s = String(status).trim();
-  
-  // 시트에서 '확인', '접수', '주문', 'ORDERED' 등으로 기재되어 있으면 주문접수 상태로 지정
-  if (['ORDERED', '주문접수', '접수', '확인', '주문', '신규'].includes(s)) return 'ORDERED';
-  
-  // '조리완료', '출고', '완료', 'COOKED'는 조리완료 상태로 지정
-  if (['COOKED', '조리완료', '출고', '완료', '조리중'].includes(s)) return 'COOKED';
-  
-  // '서빙완료', '서빙', 'SERVED'는 서빙완료 상태로 지정
-  if (['SERVED', '서빙완료', '서빙', '전달'].includes(s)) return 'SERVED';
-  
-  return 'ORDERED';
-}
-
-function renderActionButtons(orderId, statusKey) {
-  if (statusKey === 'ORDERED') {
-    return `
-      <button onclick="updateOrderStatus('${orderId}', '조리완료')" 
-        class="col-span-2 bg-flag text-paper font-display text-sm py-2.5 rounded-lg shadow-sm hover:bg-flagdark active:scale-[0.98] transition-all">
-        🍳 조리완료 처리
-      </button>
-    `;
-  } else if (statusKey === 'COOKED') {
-    return `
-      <button onclick="updateOrderStatus('${orderId}', '확인')" 
-        class="bg-ink/10 text-ink/70 font-bold text-xs py-2 rounded-lg hover:bg-ink/20">
-        ↩️ 접수로 되돌리기
-      </button>
-      <button onclick="updateOrderStatus('${orderId}', '서빙완료')" 
-        class="bg-soju text-paper font-display text-sm py-2 rounded-lg shadow-sm active:scale-[0.98] transition-all">
-        🍺 서빙완료
-      </button>
-    `;
-  } else {
-    return `
-      <button onclick="updateOrderStatus('${orderId}', '조리완료')" 
-        class="col-span-2 bg-ink/10 text-ink/60 font-bold text-xs py-2 rounded-lg hover:bg-ink/20">
-        ↩️ 조리완료로 되돌리기
-      </button>
-    `;
-  }
-}
-
-/* =========================================================
-   상태 변경 전송
-   ========================================================= */
-async function updateOrderStatus(orderId, nextStatus) {
-  try {
-    const target = state.orders.find(o => getOrderId(o) === String(orderId));
-    if (target) {
-      if (target.status !== undefined) target.status = nextStatus;
-      if (target.state !== undefined) target.state = nextStatus;
-      if (target['상태'] !== undefined) target['상태'] = nextStatus;
-      renderOrders();
+          <button class="btn-complete" onclick='completeMergedItem(${rowNumsJson}, ${orderIdsJson})'>
+            ✔ 출고
+          </button>
+        `;
+        modalItemList.appendChild(li);
+      });
     }
 
-    const payload = {
-      orderNumber: orderId,
-      id: orderId,
-      status: nextStatus,
-      state: nextStatus
-    };
-
-    await fetch(CONFIG.SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
-
-    showToast("상태가 변경되었습니다");
-    setTimeout(fetchOrders, 400);
-  } catch (err) {
-    console.error("Update Error:", err);
-    showToast("상태 변경 완료");
-    fetchOrders();
-  }
-}
-
-function bindEvents() {
-  document.querySelectorAll('.filter-tab').forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll('.filter-tab').forEach(b => {
-        b.className = 'filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-transparent text-ink/50 border border-ink/15';
+    function completeMergedItem(rowNums, orderIds) {
+      const promises = rowNums.map((rowNum, idx) => {
+        return fetch(CONFIG.GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            action: 'completeItem',
+            rowNum: rowNum,
+            orderId: orderIds[idx] || orderIds[0]
+          })
+        });
       });
-      btn.className = 'filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-flag text-paper';
-      state.currentFilter = btn.dataset.status;
-      renderOrders();
-    };
-  });
 
-  $('refresh-btn').onclick = () => {
-    showToast("주문 목록을 갱신합니다");
-    fetchOrders();
-  };
+      Promise.all(promises).then(() => {
+        fetchKitchenOrders();
+      }).catch(err => console.error("출고 오류:", err));
+    }
 
-  $('sound-toggle-btn').onclick = () => {
-    state.soundEnabled = !state.soundEnabled;
-    $('sound-icon').textContent = state.soundEnabled ? '🔊' : '🔇';
-    $('sound-text').textContent = state.soundEnabled ? '소리 켜짐' : '음소거';
-    showToast(state.soundEnabled ? "알림음이 켜졌습니다" : "알림음이 꺼졌습니다");
-  };
-}
+    function completeAllTableItems() {
+      if (!selectedTableNum || !currentActiveOrders[selectedTableNum]) return;
 
-function formatTime(timeVal) {
-  if (!timeVal) return '';
-  const d = new Date(timeVal);
-  if (isNaN(d.getTime())) return String(timeVal);
-  const h = String(d.getHours()).padStart(2, '0');
-  const m = String(d.getMinutes()).padStart(2, '0');
-  return `${h}:${m}`;
-}
+      const orderNumbers = currentActiveOrders[selectedTableNum].orderNumbers;
+      
+      const promises = orderNumbers.map(orderNum => {
+        return fetch(CONFIG.GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            action: 'completeCooking',
+            orderNumber: orderNum
+          })
+        });
+      });
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-function showToast(msg) {
-  const t = $('toast');
-  t.textContent = msg;
-  t.classList.remove('hidden');
-  t.classList.remove('toast-anim');
-  void t.offsetWidth;
-  t.classList.add('toast-anim');
-  setTimeout(() => t.classList.add('hidden'), 1800);
-}
-
-init();
-</script>
+      Promise.all(promises).then(() => {
+        closeModal();
+        fetchKitchenOrders();
+      }).catch(err => console.error("전체 완료 오류:", err));
+    }
+  </script>
 </body>
 </html>
