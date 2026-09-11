@@ -89,6 +89,15 @@
     </div>
   </div>
   <div class="mt-2.5 flex items-center gap-1.5 overflow-x-auto">
+    <button id="tab-table-view" onclick="switchView('table')"
+      class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors">
+      🔲 테이블별 보기
+    </button>
+    <button id="tab-menu-view" onclick="switchView('menu')"
+      class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors">
+      🍶 메뉴별 보기
+    </button>
+    <span class="w-px h-5 bg-paper/20 mx-0.5 shrink-0"></span>
     <button id="btn-filter" onclick="toggleOverTimeFilter()"
       class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 border-flag text-flag bg-paper transition-colors">
       ⚠️ 1시간 지연만 보기
@@ -96,10 +105,13 @@
   </div>
 </header>
 
-<!-- 테이블 그리드 -->
-<main class="px-3 pt-3">
+<!-- 테이블별 보기 -->
+<main class="px-3 pt-3" id="view-table">
   <div class="grid grid-cols-4 sm:grid-cols-5 gap-2" id="grid-container"></div>
 </main>
+
+<!-- 메뉴별 보기: 같은 메뉴를 기다리는 테이블을 대기시간 순으로 한눈에 -->
+<main class="px-3 pt-3 hidden space-y-2.5" id="view-menu-list"></main>
 
 <!-- 상세 모달 -->
 <div class="fixed inset-0 z-40 bg-ink/60 hidden items-center justify-center p-4 fade-in" id="modal-overlay">
@@ -137,6 +149,7 @@ const CONFIG = {
 let currentActiveOrders = {};
 let selectedTableNum = null;
 let isFilterOverTime = false;
+let currentView = 'menu'; // 'table' | 'menu' — 메뉴별 보기를 기본으로
 
 /* rowNum -> 몇 개까지 로컬로 "완료" 표시했는지 (전체 수량에 도달하면 서버에 완료 요청) */
 let unitProgress = {};
@@ -145,10 +158,42 @@ const $ = (id) => document.getElementById(id);
 
 window.onload = function () {
   renderTableGrid();
+  switchView('menu');
   fetchKitchenOrders();
   setInterval(fetchKitchenOrders, CONFIG.REFRESH_INTERVAL);
-  setInterval(updateTimesUI, 10000);
+  setInterval(refreshCurrentView, 10000);
 };
+
+/* =========================================================
+   보기 전환 (테이블별 / 메뉴별)
+   ========================================================= */
+function switchView(view) {
+  currentView = view;
+  $('view-table').classList.toggle('hidden', view !== 'table');
+  $('view-menu-list').classList.toggle('hidden', view !== 'menu');
+  applyViewTabStyles();
+  refreshCurrentView();
+}
+
+function applyViewTabStyles() {
+  const tableBtn = $('tab-table-view');
+  const menuBtn = $('tab-menu-view');
+  const active = 'bg-paper text-night border-paper';
+  const inactive = 'bg-transparent text-paper/70 border-paper/30';
+  tableBtn.className = 'shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors ' + (currentView === 'table' ? active : inactive);
+  menuBtn.className = 'shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors ' + (currentView === 'menu' ? active : inactive);
+}
+
+function refreshCurrentView() {
+  if (currentView === 'menu') {
+    renderMenuView();
+  } else {
+    updateTimesUI();
+  }
+  if (selectedTableNum && currentActiveOrders[selectedTableNum]) {
+    renderModalContent(currentActiveOrders[selectedTableNum]);
+  }
+}
 
 /* =========================================================
    테이블 그리드
@@ -274,23 +319,32 @@ function processOrders(orders) {
     }
   });
 
-  updateTimesUI();
-
-  if (selectedTableNum) {
-    if (currentActiveOrders[selectedTableNum]) {
-      renderModalContent(currentActiveOrders[selectedTableNum]);
-    } else {
-      closeModal();
-    }
+  if (selectedTableNum && !currentActiveOrders[selectedTableNum]) {
+    closeModal();
   }
+
+  refreshCurrentView();
 }
 
 /* =========================================================
-   경과시간 & 카드 표시
+   경과시간 계산 (테이블별 보기 / 메뉴별 보기 공용)
+   ========================================================= */
+function computeElapsed(dateObj) {
+  const now = new Date();
+  const diffMs = now - dateObj;
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(diffMinutes / 60);
+  const mins = diffMinutes % 60;
+  const formatted = `${hours > 0 ? hours + '시간 ' : ''}${mins}분 경과`;
+  const isOver = diffMinutes >= CONFIG.WARN_MINUTES_OVER;
+  const isNear = !isOver && diffMinutes >= CONFIG.WARN_MINUTES_NEAR;
+  return { diffMinutes, formatted, isOver, isNear };
+}
+
+/* =========================================================
+   경과시간 & 카드 표시 (테이블별 보기)
    ========================================================= */
 function updateTimesUI() {
-  const now = new Date();
-
   for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
     const box = $(`table-box-${i}`);
     const tableData = currentActiveOrders[i];
@@ -300,23 +354,16 @@ function updateTimesUI() {
       continue;
     }
 
-    const diffMs = now - tableData.firstTimeObj;
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const hours = Math.floor(diffMinutes / 60);
-    const mins = diffMinutes % 60;
-    const formattedElapsed = `${hours > 0 ? hours + '시간 ' : ''}${mins}분 경과`;
+    const { formatted: formattedElapsed, isOver, isNear } = computeElapsed(tableData.firstTimeObj);
 
     box.classList.remove('warning-near', 'warning-over');
     box.classList.add('border-flag/40');
 
-    let isOver = false;
     let elapsedClass = 'text-ink/50';
-
-    if (diffMinutes >= CONFIG.WARN_MINUTES_OVER) {
+    if (isOver) {
       box.classList.add('warning-over');
       elapsedClass = 'text-flag';
-      isOver = true;
-    } else if (diffMinutes >= CONFIG.WARN_MINUTES_NEAR) {
+    } else if (isNear) {
       box.classList.add('warning-near');
       elapsedClass = 'text-gold';
     }
@@ -343,6 +390,105 @@ function updateTimesUI() {
   }
 }
 
+/* =========================================================
+   메뉴별 보기: 같은 메뉴를 기다리는 테이블을 대기시간 순으로 모아서 보여줌
+   ========================================================= */
+function buildMenuAggregate() {
+  const map = {};
+
+  Object.values(currentActiveOrders).forEach(tableData => {
+    tableData.items.forEach(item => {
+      if (!map[item.name]) map[item.name] = { name: item.name, entries: [] };
+      map[item.name].entries.push({
+        table: tableData.table,
+        totalQty: item.qty,
+        occurrences: item.occurrences,
+        firstTimeStr: tableData.firstTimeStr,
+        firstTimeObj: tableData.firstTimeObj
+      });
+    });
+  });
+
+  const groups = Object.values(map);
+  // 각 메뉴 안에서는 오래 기다린 테이블이 위로
+  groups.forEach(g => g.entries.sort((a, b) => a.firstTimeObj - b.firstTimeObj));
+  // 메뉴 카드 자체도 가장 오래 기다린 테이블이 있는 메뉴가 위로
+  groups.sort((a, b) => a.entries[0].firstTimeObj - b.entries[0].firstTimeObj);
+  return groups;
+}
+
+function renderMenuView() {
+  const container = $('view-menu-list');
+  const groups = buildMenuAggregate();
+
+  if (groups.length === 0) {
+    container.innerHTML = `<p class="text-center text-ink/40 text-sm py-10">대기 중인 주문이 없어요 🍶</p>`;
+    return;
+  }
+
+  container.innerHTML = '';
+
+  groups.forEach(group => {
+    // 필터가 켜져 있으면 지연된 테이블이 하나도 없는 메뉴는 숨김
+    const visibleEntries = isFilterOverTime
+      ? group.entries.filter(e => computeElapsed(e.firstTimeObj).isOver)
+      : group.entries;
+    if (visibleEntries.length === 0) return;
+
+    const totalQty = visibleEntries.reduce((s, e) => s + e.totalQty, 0);
+    const anyOver = visibleEntries.some(e => computeElapsed(e.firstTimeObj).isOver);
+
+    const card = document.createElement('div');
+    card.className = 'bg-white rounded-xl shadow-card p-3' + (anyOver ? ' warning-over border-2 border-flag' : ' border-2 border-ink/10');
+
+    let rowsHtml = '';
+    visibleEntries.forEach(entry => {
+      const { formatted, isOver, isNear } = computeElapsed(entry.firstTimeObj);
+      const badgeClass = isOver ? 'text-flag' : (isNear ? 'text-gold' : 'text-ink/50');
+
+      let dotsHtml = '';
+      entry.occurrences.forEach(occ => {
+        const done = unitProgress[occ.rowNum] || 0;
+        let rowDots = '';
+        for (let idx = 0; idx < occ.qty; idx++) {
+          const isDone = idx < done;
+          rowDots += `
+            <button
+              class="unit-dot w-7 h-7 rounded-full border-2 font-display text-xs flex items-center justify-center active:scale-90 transition-transform ${
+                isDone ? 'bg-soju border-soju text-paper' : 'bg-paper border-ink/20 text-ink/40'
+              }"
+              onclick="toggleUnit('${occ.rowNum}', '${occ.orderId}', ${occ.qty}, ${idx})">
+              ${isDone ? '✓' : idx + 1}
+            </button>`;
+        }
+        dotsHtml += `<div class="flex items-center gap-1.5 flex-wrap mt-1">${rowDots}</div>`;
+      });
+
+      rowsHtml += `
+        <div class="py-2 ${entry !== visibleEntries[visibleEntries.length - 1] ? 'border-b border-ink/10' : ''}">
+          <div class="flex items-center justify-between">
+            <button class="font-display text-base text-ink" onclick="openModal(${entry.table})">테이블 ${entry.table}</button>
+            <span class="text-xs font-bold ${badgeClass}">⏱ ${formatted}${isOver ? ' 🚨' : ''}</span>
+          </div>
+          ${dotsHtml}
+        </div>`;
+    });
+
+    card.innerHTML = `
+      <div class="flex items-center justify-between mb-1">
+        <span class="font-bold text-sm">${group.name}</span>
+        <span class="bg-ink/5 text-ink/60 text-xs font-bold px-2 py-0.5 rounded-full">총 ${totalQty}개 · ${visibleEntries.length}테이블</span>
+      </div>
+      ${rowsHtml}
+    `;
+    container.appendChild(card);
+  });
+
+  if (!container.innerHTML.trim()) {
+    container.innerHTML = `<p class="text-center text-ink/40 text-sm py-10">1시간 넘게 지연된 메뉴가 없어요 👍</p>`;
+  }
+}
+
 function toggleOverTimeFilter() {
   isFilterOverTime = !isFilterOverTime;
   const btn = $('btn-filter');
@@ -351,7 +497,7 @@ function toggleOverTimeFilter() {
   btn.classList.toggle('bg-paper', !isFilterOverTime);
   btn.classList.toggle('text-flag', !isFilterOverTime);
   btn.innerText = isFilterOverTime ? '📋 전체 보기' : '⚠️ 1시간 지연만 보기';
-  updateTimesUI();
+  refreshCurrentView();
 }
 
 /* =========================================================
@@ -433,14 +579,13 @@ function toggleUnit(rowNum, orderId, unitTotal, idx) {
   if (idx < done) {
     // 완료 취소: 그 지점까지 되돌리기
     unitProgress[rowNum] = idx;
-    if (selectedTableNum) renderModalContent(currentActiveOrders[selectedTableNum]);
+    refreshCurrentView();
     return;
   }
   if (idx > done) return; // 순서를 건너뛰어 누를 수는 없음
 
   unitProgress[rowNum] = done + 1;
-
-  if (selectedTableNum) renderModalContent(currentActiveOrders[selectedTableNum]);
+  refreshCurrentView();
 
   if (unitProgress[rowNum] >= unitTotal) {
     fetch(CONFIG.GAS_URL, {
@@ -455,7 +600,7 @@ function toggleUnit(rowNum, orderId, unitTotal, idx) {
       .catch(err => {
         console.error('출고 오류:', err);
         unitProgress[rowNum] = unitTotal - 1; // 실패 시 마지막 한 칸 되돌리기
-        if (selectedTableNum) renderModalContent(currentActiveOrders[selectedTableNum]);
+        refreshCurrentView();
       });
   }
 }
