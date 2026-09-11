@@ -260,7 +260,7 @@
       100% { opacity: 1; }
     }
 
-    /* ============ 모달 스티일 ============ */
+    /* ============ 모달 스타일 ============ */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0;
@@ -285,7 +285,7 @@
       background-color: #FFFFFF;
       border-radius: 16px;
       width: 90%;
-      max-width: 440px;
+      max-width: 460px;
       max-height: 80vh;
       display: flex;
       flex-direction: column;
@@ -364,6 +364,47 @@
       font-size: 0.85rem;
     }
 
+    .action-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .qty-control {
+      display: flex;
+      align-items: center;
+      background-color: #F1F5F9;
+      border-radius: 6px;
+      padding: 2px;
+      border: 1px solid #CBD5E1;
+    }
+
+    .btn-qty {
+      background-color: #FFFFFF;
+      border: 1px solid #CBD5E1;
+      color: var(--text-ink);
+      font-weight: bold;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+    }
+
+    .btn-qty:active {
+      background-color: #E2E8F0;
+    }
+
+    .qty-select-val {
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0 8px;
+      color: var(--text-ink);
+    }
+
     .modal-footer {
       padding: 14px 16px;
       background-color: #FFFFFF;
@@ -393,12 +434,13 @@
       background-color: var(--night-dark);
       color: var(--accent-gold);
       border: none;
-      padding: 8px 14px;
+      padding: 8px 12px;
       border-radius: 8px;
       font-size: 0.85rem;
       font-weight: 700;
       cursor: pointer;
       transition: background-color 0.2s;
+      white-space: nowrap;
     }
 
     .btn-complete:hover {
@@ -452,6 +494,7 @@
     let currentActiveOrders = {};
     let selectedTableNum = null;
     let isFilterOverTime = false;
+    let selectedQtyMap = {}; // 항목별 선택 수량 저장
 
     window.onload = function() {
       renderTableGrid();
@@ -553,9 +596,15 @@
             const qty = parseInt(newItem.qty || 1, 10);
             const existingItem = currentActiveOrders[tableNum].items.find(i => i.name === newItem.name);
 
+            // 각 행 번호(rowNum)별 개별 관리를 위한 데이터 저장
+            const itemDetails = Array(qty).fill().map(() => ({
+              rowNum: newItem.rowNum,
+              orderId: order.orderNumber
+            }));
+
             if (existingItem) {
               existingItem.qty += qty;
-              existingItem.rowNums.push(newItem.rowNum);
+              existingItem.details = existingItem.details.concat(itemDetails);
               if (!existingItem.orderIds.includes(order.orderNumber)) {
                 existingItem.orderIds.push(order.orderNumber);
               }
@@ -563,7 +612,7 @@
               currentActiveOrders[tableNum].items.push({
                 name: newItem.name,
                 qty: qty,
-                rowNums: [newItem.rowNum],
+                details: itemDetails,
                 orderIds: [order.orderNumber]
               });
             }
@@ -654,12 +703,14 @@
       if (!tableData || !tableData.items || tableData.items.length === 0) return;
 
       selectedTableNum = tableNum;
+      selectedQtyMap = {}; // 모달 열 때 수량 선택 초기화
       renderModalContent(tableData);
       document.getElementById('modal-overlay').classList.add('open');
     }
 
     function closeModal() {
       selectedTableNum = null;
+      selectedQtyMap = {};
       document.getElementById('modal-overlay').classList.remove('open');
     }
 
@@ -674,42 +725,86 @@
       const modalItemList = document.getElementById('modal-item-list');
       modalItemList.innerHTML = '';
 
-      tableData.items.forEach(item => {
+      tableData.items.forEach((item, index) => {
         const li = document.createElement('li');
         li.className = 'item-card';
         
-        const rowNumsJson = JSON.stringify(item.rowNums);
-        const orderIdsJson = JSON.stringify(item.orderIds);
+        if (!selectedQtyMap[index]) {
+          selectedQtyMap[index] = item.qty; // 기본적으로 전체 수량 선택
+        }
+
+        const isMulti = item.qty > 1;
+
+        let actionHtml = '';
+        if (isMulti) {
+          actionHtml = `
+            <div class="action-group">
+              <div class="qty-control">
+                <button class="btn-qty" onclick="changePartialQty(${index}, -1, ${item.qty})">-</button>
+                <span class="qty-select-val" id="qty-val-${index}">${selectedQtyMap[index]}</span>
+                <button class="btn-qty" onclick="changePartialQty(${index}, 1, ${item.qty})">+</button>
+              </div>
+              <button class="btn-complete" onclick="completePartialItem(${index})">
+                ✔ 주문완료
+              </button>
+            </div>
+          `;
+        } else {
+          actionHtml = `
+            <button class="btn-complete" onclick="completePartialItem(${index})">
+              ✔ 주문완료
+            </button>
+          `;
+        }
 
         li.innerHTML = `
           <div class="item-info">
             <span class="item-name">${item.name}</span>
             <span class="item-qty">${item.qty}개</span>
           </div>
-          <button class="btn-complete" onclick='completeMergedItem(${rowNumsJson}, ${orderIdsJson})'>
-            ✔ 출고
-          </button>
+          ${actionHtml}
         `;
         modalItemList.appendChild(li);
       });
     }
 
-    function completeMergedItem(rowNums, orderIds) {
-      const promises = rowNums.map((rowNum, idx) => {
+    function changePartialQty(itemIdx, delta, maxQty) {
+      let currentVal = selectedQtyMap[itemIdx] || maxQty;
+      currentVal += delta;
+      if (currentVal < 1) currentVal = 1;
+      if (currentVal > maxQty) currentVal = maxQty;
+      
+      selectedQtyMap[itemIdx] = currentVal;
+      const valElem = document.getElementById(`qty-val-${itemIdx}`);
+      if (valElem) valElem.innerText = currentVal;
+    }
+
+    function completePartialItem(itemIdx) {
+      if (!selectedTableNum || !currentActiveOrders[selectedTableNum]) return;
+
+      const item = currentActiveOrders[selectedTableNum].items[itemIdx];
+      if (!item) return;
+
+      const countToComplete = selectedQtyMap[itemIdx] || item.qty;
+      // 완료할 개수만큼 details에서 추출
+      const targets = item.details.slice(0, countToComplete);
+
+      const promises = targets.map(target => {
         return fetch(CONFIG.GAS_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
             action: 'completeItem',
-            rowNum: rowNum,
-            orderId: orderIds[idx] || orderIds[0]
+            rowNum: target.rowNum,
+            orderId: target.orderId
           })
         });
       });
 
       Promise.all(promises).then(() => {
+        delete selectedQtyMap[itemIdx];
         fetchKitchenOrders();
-      }).catch(err => console.error("출고 오류:", err));
+      }).catch(err => console.error("주문완료 오류:", err));
     }
 
     function completeAllTableItems() {
