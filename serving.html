@@ -34,7 +34,31 @@
       color: #ff4d4d;
     }
 
-    .header .status {
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* 2시간 초과 필터 버튼 */
+    .btn-filter-warning {
+      background-color: #333;
+      color: #ff4d4d;
+      border: 1px solid #ff4d4d;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-filter-warning.active {
+      background-color: #ff4d4d;
+      color: #fff;
+    }
+
+    .status {
       font-size: 0.85rem;
       color: #888;
       display: flex;
@@ -68,7 +92,7 @@
       border: 2px solid #333;
       border-radius: 10px;
       padding: 10px 8px;
-      min-height: 95px;
+      min-height: 105px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -81,6 +105,24 @@
       background-color: #2a1215;
       border-color: #e63946;
       box-shadow: 0 0 10px rgba(230, 57, 70, 0.4);
+    }
+
+    /* 1시간 30분 이상 경과 (주의) */
+    .table-card.warning-near {
+      border-color: #f1c40f !important;
+      box-shadow: 0 0 8px rgba(241, 196, 15, 0.5);
+    }
+
+    /* 2시간 이상 경과 (경고 - 빨간색 점멸) */
+    .table-card.warning-over {
+      background-color: #3a0d10 !important;
+      border-color: #ff0000 !important;
+      animation: blink-border 1.2s infinite alternate;
+    }
+
+    @keyframes blink-border {
+      0% { box-shadow: 0 0 5px #ff0000; border-color: #ff0000; }
+      100% { box-shadow: 0 0 18px #ff0000; border-color: #ff4d4d; }
     }
 
     .table-header {
@@ -102,7 +144,18 @@
     .table-time {
       font-size: 0.7rem;
       color: #aaa;
+      text-align: right;
     }
+
+    /* Elapsed Time 디스플레이 */
+    .elapsed-time {
+      display: block;
+      font-weight: bold;
+      font-size: 0.75rem;
+      margin-top: 1px;
+    }
+    .elapsed-time.over { color: #ff4d4d; }
+    .elapsed-time.near { color: #f1c40f; }
 
     .table-summary {
       font-size: 0.8rem;
@@ -121,15 +174,35 @@
       font-weight: 600;
     }
 
+    .badge-group {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      margin-top: 4px;
+    }
+
     .item-count-badge {
-      align-self: flex-start;
       background-color: #e63946;
       color: #fff;
       font-size: 0.7rem;
       padding: 2px 6px;
       border-radius: 12px;
-      margin-top: 4px;
       font-weight: bold;
+    }
+
+    .over-time-badge {
+      background-color: #ff0000;
+      color: #fff;
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 12px;
+      font-weight: bold;
+      animation: blink-text 1s infinite alternate;
+    }
+
+    @keyframes blink-text {
+      0% { opacity: 0.6; }
+      100% { opacity: 1; }
     }
 
     .modal-overlay {
@@ -249,10 +322,6 @@
       cursor: pointer;
     }
 
-    .btn-all-complete:active {
-      background-color: #1b5e20;
-    }
-
     .btn-complete {
       background-color: #2563eb;
       color: #fff;
@@ -262,21 +331,19 @@
       font-size: 0.85rem;
       font-weight: bold;
       cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .btn-complete:active {
-      background-color: #1d4ed8;
     }
   </style>
 </head>
 <body>
 
   <div class="header">
-    <h1>👨‍🍳 주방 현황판 (KDS)</h1>
-    <div class="status">
-      <span class="status-dot"></span>
-      <span id="sync-status">실시간 연결 중...</span>
+    <h1>👨‍🍳 주방/서빙 현황판 (KDS)</h1>
+    <div class="header-controls">
+      <button class="btn-filter-warning" id="btn-filter" onclick="toggleOverTimeFilter()">⚠️ 2시간 초과만 보기</button>
+      <div class="status">
+        <span class="status-dot"></span>
+        <span id="sync-status">연결 중...</span>
+      </div>
     </div>
   </div>
 
@@ -289,10 +356,11 @@
         <button class="btn-close" onclick="closeModal()">&times;</button>
       </div>
       <div class="modal-body">
+        <div id="modal-time-info" style="font-size:0.85rem; color:#f1c40f; margin-bottom:12px; font-weight:bold;"></div>
         <ul class="item-list" id="modal-item-list"></ul>
       </div>
       <div class="modal-footer">
-        <button class="btn-all-complete" onclick="completeAllTableItems()">테이블 전체 완료</button>
+        <button class="btn-all-complete" onclick="completeAllTableItems()">테이블 퇴장 / 전체 완료</button>
       </div>
     </div>
   </div>
@@ -301,16 +369,21 @@
     const CONFIG = {
       GAS_URL: 'https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec', 
       TOTAL_TABLES: 35,
-      REFRESH_INTERVAL: 4000
+      REFRESH_INTERVAL: 4000,
+      WARN_MINUTES_NEAR: 90,  // 1시간 30분 경과 시 주의
+      WARN_MINUTES_OVER: 120  // 2시간 경과 시 경고 (빨간색 점멸)
     };
 
-    let currentActiveOrders = {}; // 테이블번호별 병합된 주문 데이터
-    let selectedTableNum = null;   // 현재 모달에 열려있는 테이블 번호
+    let currentActiveOrders = {};
+    let selectedTableNum = null;
+    let isFilterOverTime = false;
 
     window.onload = function() {
       renderTableGrid();
       fetchKitchenOrders();
       setInterval(fetchKitchenOrders, CONFIG.REFRESH_INTERVAL);
+      // 10초마다 테이블별 경과시간 UI 업데이트
+      setInterval(updateTimesUI, 10000);
     };
 
     function renderTableGrid() {
@@ -326,10 +399,10 @@
         card.innerHTML = `
           <div class="table-header">
             <span class="table-num">${i}</span>
-            <span class="table-time" id="table-time-${i}"></span>
+            <div class="table-time" id="table-time-${i}"></div>
           </div>
           <div class="table-summary" id="table-summary-${i}">빈 테이블</div>
-          <div id="table-badge-${i}"></div>
+          <div class="badge-group" id="table-badge-${i}"></div>
         `;
         container.appendChild(card);
       }
@@ -350,6 +423,18 @@
         });
     }
 
+    function parseOrderDate(timeStr) {
+      if (!timeStr) return new Date();
+      const now = new Date();
+      const parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        now.setHours(parseInt(parts[0], 10));
+        now.setMinutes(parseInt(parts[1], 10));
+        now.setSeconds(0);
+      }
+      return now;
+    }
+
     function processOrders(orders) {
       currentActiveOrders = {}; 
 
@@ -357,14 +442,14 @@
       for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
         const box = document.getElementById(`table-box-${i}`);
         if (box) {
-          box.classList.remove('active');
+          box.className = 'table-card';
           document.getElementById(`table-summary-${i}`).innerText = '빈 테이블';
           document.getElementById(`table-time-${i}`).innerText = '';
           document.getElementById(`table-badge-${i}`).innerHTML = '';
         }
       }
 
-      // 2. 주문 데이터를 테이블별로 병합(Merge)
+      // 2. 테이블별 주문 병합
       orders.forEach(order => {
         const rawTable = String(order.table || '');
         const match = rawTable.match(/\d+/);
@@ -381,7 +466,8 @@
           if (!currentActiveOrders[tableNum]) {
             currentActiveOrders[tableNum] = {
               table: tableNum,
-              firstTime: order.time,
+              firstTimeStr: order.time,
+              firstTimeObj: parseOrderDate(order.time),
               orderNumbers: [order.orderNumber],
               items: []
             };
@@ -391,12 +477,9 @@
             }
           }
 
-          // 메뉴 데이터 추가 (같은 메뉴는 수량 합산)
           validItems.forEach(newItem => {
             const qty = parseInt(newItem.qty || 1, 10);
-            const existingItem = currentActiveOrders[tableNum].items.find(
-              i => i.name === newItem.name
-            );
+            const existingItem = currentActiveOrders[tableNum].items.find(i => i.name === newItem.name);
 
             if (existingItem) {
               existingItem.qty += qty;
@@ -416,26 +499,9 @@
         }
       });
 
-      // 3. 화면 UI 업데이트
-      Object.keys(currentActiveOrders).forEach(tableNum => {
-        const tableData = currentActiveOrders[tableNum];
-        const items = tableData.items;
+      // 3. 화면 UI 갱신 및 시간 계산
+      updateTimesUI();
 
-        if (items.length > 0) {
-          const box = document.getElementById(`table-box-${tableNum}`);
-          if (box) box.classList.add('active');
-
-          const firstItem = items[0].name;
-          const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
-          const summaryText = items.length > 1 ? `${firstItem} 외 ${items.length - 1}건` : `${firstItem} ${items[0].qty}개`;
-
-          document.getElementById(`table-summary-${tableNum}`).innerText = summaryText;
-          document.getElementById(`table-time-${tableNum}`).innerText = `⏱ ${tableData.firstTime}`;
-          document.getElementById(`table-badge-${tableNum}`).innerHTML = `<span class="item-count-badge">${totalQty}개 메뉴</span>`;
-        }
-      });
-
-      // 열려있는 모달이 있으면 갱신
       if (selectedTableNum) {
         if (currentActiveOrders[selectedTableNum]) {
           renderModalContent(currentActiveOrders[selectedTableNum]);
@@ -443,6 +509,77 @@
           closeModal();
         }
       }
+    }
+
+    function updateTimesUI() {
+      const now = new Date();
+
+      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+        const box = document.getElementById(`table-box-${i}`);
+        const tableData = currentActiveOrders[i];
+
+        if (!tableData || !tableData.items || tableData.items.length === 0) {
+          if (box) box.style.display = isFilterOverTime ? 'none' : 'flex';
+          continue;
+        }
+
+        // 경과 시간(분) 계산
+        const diffMs = now - tableData.firstTimeObj;
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const hours = Math.floor(diffMinutes / 60);
+        const mins = diffMinutes % 60;
+        const formattedElapsed = `${hours > 0 ? hours + '시간 ' : ''}${mins}분 경과`;
+
+        // 상태 ക്ലാ스 관리
+        box.classList.add('active');
+        box.classList.remove('warning-near', 'warning-over');
+
+        let isOver = false;
+        let elapsedClass = '';
+
+        if (diffMinutes >= CONFIG.WARN_MINUTES_OVER) {
+          box.classList.add('warning-over');
+          elapsedClass = 'over';
+          isOver = true;
+        } else if (diffMinutes >= CONFIG.WARN_MINUTES_NEAR) {
+          box.classList.add('warning-near');
+          elapsedClass = 'near';
+        }
+
+        // 필터링 적용 ("2시간 초과만 보기" 활성화 시)
+        if (isFilterOverTime && !isOver) {
+          box.style.display = 'none';
+        } else {
+          box.style.display = 'flex';
+        }
+
+        // UI 텍스트 갱신
+        const firstItem = tableData.items[0].name;
+        const totalQty = tableData.items.reduce((sum, item) => sum + item.qty, 0);
+        const summaryText = tableData.items.length > 1 
+          ? `${firstItem} 외 ${tableData.items.length - 1}건` 
+          : `${firstItem} ${tableData.items[0].qty}개`;
+
+        document.getElementById(`table-summary-${i}`).innerText = summaryText;
+        document.getElementById(`table-time-${i}`).innerHTML = `
+          <span>입장: ${tableData.firstTimeStr}</span>
+          <span class="elapsed-time ${elapsedClass}">⏱ ${formattedElapsed}</span>
+        `;
+
+        let badgeHtml = `<span class="item-count-badge">${totalQty}개 메뉴</span>`;
+        if (isOver) {
+          badgeHtml += `<span class="over-time-badge">🚨 2시간 초과</span>`;
+        }
+        document.getElementById(`table-badge-${i}`).innerHTML = badgeHtml;
+      }
+    }
+
+    function toggleOverTimeFilter() {
+      isFilterOverTime = !isFilterOverTime;
+      const btn = document.getElementById('btn-filter');
+      btn.classList.toggle('active', isFilterOverTime);
+      btn.innerText = isFilterOverTime ? '📋 전체 테이블 보기' : '⚠️ 2시간 초과만 보기';
+      updateTimesUI();
     }
 
     function openModal(tableNum) {
@@ -460,20 +597,20 @@
     }
 
     function renderModalContent(tableData) {
+      const now = new Date();
+      const diffMs = now - tableData.firstTimeObj;
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
       document.getElementById('modal-title').innerText = `테이블 ${tableData.table}`;
+      document.getElementById('modal-time-info').innerText = `입장 시각: ${tableData.firstTimeStr} (총 ${diffMinutes}분 이용 중)`;
+
       const modalItemList = document.getElementById('modal-item-list');
       modalItemList.innerHTML = '';
-
-      if (tableData.items.length === 0) {
-        modalItemList.innerHTML = '<li class="item-card"><p style="color:#aaa; text-align:center;">출고할 메뉴가 없습니다.</p></li>';
-        return;
-      }
 
       tableData.items.forEach(item => {
         const li = document.createElement('li');
         li.className = 'item-card';
         
-        // rowNums와 orderIds 배열을 JSON 텍스트 형태로 변환하여 버튼 파라미터로 넘김
         const rowNumsJson = JSON.stringify(item.rowNums);
         const orderIdsJson = JSON.stringify(item.orderIds);
 
@@ -491,7 +628,6 @@
     }
 
     function completeMergedItem(rowNums, orderIds) {
-      // 해당 메뉴의 모든 rowNum을 순차적으로 출고 처리
       const promises = rowNums.map((rowNum, idx) => {
         return fetch(CONFIG.GAS_URL, {
           method: 'POST',
