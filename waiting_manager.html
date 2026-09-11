@@ -86,10 +86,9 @@
 
 <script>
 /* =========================================================
-   설정값
-   Code.gs 백엔드 액션 명세:
-   - GET  ?action=waitingList  -> { success: true, list: [{ rowNum, waitNum, name, phone, count, status, time }] }
-   - POST { action: 'updateWaiting', rowNum, status } -> { success: true }
+   Code.gs 규격 반영 완료
+   - GET  ?action=waitingList  -> data.list
+   - POST { action: 'updateWaiting', rowNum, status }
    ========================================================= */
 const CONFIG = {
   SCRIPT_URL: "https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec",
@@ -118,7 +117,7 @@ function fetchWaitingList() {
     .then(res => res.json())
     .then(data => {
       if (!data.success) throw new Error(data.message || '목록을 불러오지 못했습니다');
-      waitings = data.list || []; // Code.gs에서 반환하는 'list' 키로 수정
+      waitings = data.list || []; // Code.gs의 반환 키 'list'에 맞춤
       $('sync-status').innerText = '실시간 수신 중';
       $('status-dot').className = 'w-2 h-2 rounded-full bg-soju';
       renderList();
@@ -260,7 +259,7 @@ function escapeAttr(str) {
 }
 
 /* =========================================================
-   상태 변경 (Code.gs 액션명 'updateWaiting'으로 수정)
+   상태 변경
    ========================================================= */
 function updateStatus(rowNum, status) {
   const target = waitings.find(w => w.rowNum === rowNum);
@@ -274,7 +273,7 @@ function updateStatus(rowNum, status) {
   fetch(CONFIG.SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'updateWaiting', rowNum, status }), // Code.gs 수신 규격에 맞게 'updateWaiting'으로 수정
+    body: JSON.stringify({ action: 'updateWaiting', rowNum, status }), // Code.gs 규격인 'updateWaiting'으로 변경
   })
     .then(res => res.json())
     .then(data => {
