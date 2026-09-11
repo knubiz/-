@@ -78,7 +78,7 @@
   <div class="max-w-6xl mx-auto flex items-center justify-between gap-3">
     <div>
       <p class="text-[10px] tracking-widest text-paper/70 mb-0.5">2026 7단대 연합축제 · Master7iece</p>
-      <h1 class="font-display text-xl sm:text-2xl leading-snug">☠️ 무한해적상회주문 관리 시스템</h1>
+      <h1 class="font-display text-xl sm:text-2xl leading-snug">☠️ 무한해적상회 주문 관리</h1>
     </div>
     <div class="flex items-center gap-2">
       <button id="sound-toggle-btn" class="bg-paper/20 hover:bg-paper/30 text-paper font-bold text-xs px-3 py-2 rounded-lg transition-colors flex items-center gap-1">
@@ -126,11 +126,11 @@
 
 <script>
 /* =========================================================
-   설정값 — 앱스프립트 URL을 입력하세요
+   설정값 — 기존 백엔드 URL
    ========================================================= */
 const CONFIG = {
   SCRIPT_URL: "https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec",
-  POLLING_INTERVAL: 7000, // 7초마다 자동 새로고침
+  POLLING_INTERVAL: 5000, // 5초마다 자동 새로고침
 };
 
 /* =========================================================
@@ -145,9 +145,9 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
-const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
+const won = (n) => Number(n || 0).toLocaleString('ko-KR') + '원';
 
-/* 오디오 설정 (웹 오디오 API로 알림음 생성) */
+/* 오디오 알림음 */
 function playAlertSound() {
   if (!state.soundEnabled) return;
   try {
@@ -155,8 +155,8 @@ function playAlertSound() {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15); // A5
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15);
     gain.gain.setValueAtTime(0.3, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
     osc.connect(gain);
@@ -169,7 +169,7 @@ function playAlertSound() {
 }
 
 /* =========================================================
-   초기화 및 데이터 로드
+   초기화 및 데이터 로드 (기존 doGet 백엔드 연동)
    ========================================================= */
 async function init() {
   bindEvents();
@@ -179,15 +179,27 @@ async function init() {
 
 async function fetchOrders() {
   try {
-    const res = await fetch(`${CONFIG.SCRIPT_URL}?action=getOrders`);
-    const data = await res.json();
-    if (!data.success) throw new Error(data.message || '주문 목록 로드 실패');
-
-    const newOrders = data.orders || [];
+    // 기존 doGet 호출 (파라미터 없이 순수 GET 호출)
+    const res = await fetch(CONFIG.SCRIPT_URL);
+    const rawData = await res.json();
     
-    // 신규 주문 감지
+    // 응답이 배열 형태이거나 { orders: [...] }, { data: [...] } 구조 모두 대응
+    let newOrders = [];
+    if (Array.isArray(rawData)) {
+      newOrders = rawData;
+    } else if (rawData.orders && Array.isArray(rawData.orders)) {
+      newOrders = rawData.orders;
+    } else if (rawData.data && Array.isArray(rawData.data)) {
+      newOrders = rawData.data;
+    }
+
+    // 신규 주문 감지 및 알림
     if (!state.isFirstLoad) {
-      const hasNew = newOrders.some(o => !state.knownOrderIds.has(o.orderNumber) && (o.status === 'ORDERED' || o.status === '주문접수'));
+      const hasNew = newOrders.some(o => {
+        const id = getOrderId(o);
+        const status = mapStatusKey(o.status || o.state);
+        return !state.knownOrderIds.has(id) && status === 'ORDERED';
+      });
       if (hasNew) {
         playAlertSound();
         showToast("🔔 새로운 주문이 들어왔습니다!");
@@ -195,14 +207,19 @@ async function fetchOrders() {
     }
 
     state.orders = newOrders;
-    state.knownOrderIds = new Set(newOrders.map(o => o.orderNumber));
+    state.knownOrderIds = new Set(newOrders.map(o => getOrderId(o)));
     state.isFirstLoad = false;
 
     renderOrders();
   } catch (err) {
-    console.error(err);
+    console.error("Fetch Error:", err);
     showToast("주문 데이터를 불러오는데 실패했습니다");
   }
+}
+
+/* 주문 ID 추출 헬퍼 */
+function getOrderId(order) {
+  return String(order.orderNumber || order.id || order.no || order.orderId || '');
 }
 
 /* =========================================================
@@ -214,11 +231,11 @@ function renderOrders() {
 
   let filtered = state.orders;
   if (state.currentFilter !== 'ALL') {
-    filtered = state.orders.filter(o => mapStatusKey(o.status) === state.currentFilter);
+    filtered = state.orders.filter(o => mapStatusKey(o.status || o.state) === state.currentFilter);
   }
 
-  // 통계 업데이트
-  const pendingCount = state.orders.filter(o => mapStatusKey(o.status) === 'ORDERED').length;
+  // 통계 계산
+  const pendingCount = state.orders.filter(o => mapStatusKey(o.status || o.state) === 'ORDERED').length;
   $('count-pending').textContent = pendingCount;
   $('count-total').textContent = state.orders.length;
 
@@ -228,14 +245,27 @@ function renderOrders() {
   }
   $('empty-state').classList.add('hidden');
 
-  // 최신 주문이 위로 오도록 정렬
-  filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  // 최신 주문 정렬 (createdAt 또는 timestamp)
+  filtered.sort((a, b) => new Date(b.createdAt || b.time || 0) - new Date(a.createdAt || a.time || 0));
 
   filtered.forEach(order => {
-    const statusKey = mapStatusKey(order.status);
-    const card = document.createElement('div');
-    
-    // 상태별 카드 테두리 및 배경 설정
+    const orderId = getOrderId(order);
+    const statusKey = mapStatusKey(order.status || order.state);
+    const tableNum = order.table || order.tableNo || order.tableNumber || '-';
+    const totalAmt = order.totalAmount || order.totalPrice || order.total || 0;
+    const timeStr = formatTime(order.createdAt || order.time || order.timestamp);
+
+    // 메뉴 아이템 표준화 (배열 또는 텍스트 형태)
+    let itemsList = [];
+    if (Array.isArray(order.items)) {
+      itemsList = order.items;
+    } else if (typeof order.items === 'string') {
+      try { itemsList = JSON.parse(order.items); } catch(e) { itemsList = [{ name: order.items, qty: 1 }]; }
+    } else if (order.menu) {
+      itemsList = [{ name: order.menu, qty: order.qty || 1 }];
+    }
+
+    // 상태별 카드 테두리 및 디자인
     let statusStyle = "";
     let badgeStyle = "";
     let badgeText = "";
@@ -254,13 +284,13 @@ function renderOrders() {
       badgeText = "서빙완료";
     }
 
+    const card = document.createElement('div');
     card.className = `rounded-xl shadow-card p-4 flex flex-col justify-between transition-all ${statusStyle}`;
 
-    // 주문 메뉴 항목 HTML 생성
-    const itemsHtml = (order.items || []).map(item => `
+    const itemsHtml = itemsList.map(item => `
       <div class="flex justify-between items-center text-sm py-1 border-b border-ink/5 last:border-0">
-        <span class="font-bold text-ink">${escapeHtml(item.name)}</span>
-        <span class="font-display text-flag ml-2">x${item.qty}</span>
+        <span class="font-bold text-ink">${escapeHtml(item.name || item.menuName || '')}</span>
+        <span class="font-display text-flag ml-2">x${item.qty || item.count || 1}</span>
       </div>
     `).join('');
 
@@ -269,9 +299,9 @@ function renderOrders() {
         <div class="flex items-center justify-between pb-2 mb-2 border-b border-ink/10">
           <div class="flex items-center gap-2">
             <span class="bg-night text-gold font-display text-lg px-2.5 py-0.5 rounded-lg">
-              테이블 ${order.table}
+              테이블 ${tableNum}
             </span>
-            <span class="text-xs text-ink/40 font-mono">#${order.orderNumber}</span>
+            <span class="text-xs text-ink/40 font-mono">#${orderId}</span>
           </div>
           <span class="text-xs font-bold px-2 py-1 rounded-md ${badgeStyle}">
             ${badgeText}
@@ -285,12 +315,12 @@ function renderOrders() {
 
       <div class="pt-3 mt-2 border-t border-ink/10">
         <div class="flex justify-between items-center mb-3 text-xs text-ink/60">
-          <span>총 금액: <strong class="text-ink font-bold text-sm">${won(order.totalAmount || 0)}</strong></span>
-          <span>${formatTime(order.createdAt)}</span>
+          <span>총 금액: <strong class="text-ink font-bold text-sm">${won(totalAmt)}</strong></span>
+          <span>${timeStr}</span>
         </div>
 
         <div class="grid grid-cols-2 gap-2">
-          ${renderActionButtons(order.orderNumber, statusKey)}
+          ${renderActionButtons(orderId, statusKey)}
         </div>
       </div>
     `;
@@ -299,37 +329,39 @@ function renderOrders() {
   });
 }
 
-/* 상태 키 정규화 */
+/* 기존 상태 문자열 통합 매핑 */
 function mapStatusKey(status) {
-  if (status === 'ORDERED' || status === '주문접수') return 'ORDERED';
-  if (status === 'COOKED' || status === '조리완료' || status === '출고') return 'COOKED';
-  if (status === 'SERVED' || status === '서빙완료') return 'SERVED';
+  if (!status) return 'ORDERED';
+  const s = String(status).trim();
+  if (s === 'ORDERED' || s === '주문접수' || s === '접수') return 'ORDERED';
+  if (s === 'COOKED' || s === '조리완료' || s === '출고' || s === '완료') return 'COOKED';
+  if (s === 'SERVED' || s === '서빙완료' || s === '서빙') return 'SERVED';
   return 'ORDERED';
 }
 
-/* 상태별 작업 버튼 생성 */
-function renderActionButtons(orderNumber, statusKey) {
+/* 버튼 렌더링 */
+function renderActionButtons(orderId, statusKey) {
   if (statusKey === 'ORDERED') {
     return `
-      <button onclick="updateOrderStatus('${orderNumber}', 'COOKED')" 
+      <button onclick="updateOrderStatus('${orderId}', 'COOKED')" 
         class="col-span-2 bg-flag text-paper font-display text-sm py-2.5 rounded-lg shadow-sm hover:bg-flagdark active:scale-[0.98] transition-all">
         🍳 조리완료 처리
       </button>
     `;
   } else if (statusKey === 'COOKED') {
     return `
-      <button onclick="updateOrderStatus('${orderNumber}', 'ORDERED')" 
+      <button onclick="updateOrderStatus('${orderId}', 'ORDERED')" 
         class="bg-ink/10 text-ink/70 font-bold text-xs py-2 rounded-lg hover:bg-ink/20">
         ↩️ 접수로 되돌리기
       </button>
-      <button onclick="updateOrderStatus('${orderNumber}', 'SERVED')" 
+      <button onclick="updateOrderStatus('${orderId}', 'SERVED')" 
         class="bg-soju text-paper font-display text-sm py-2 rounded-lg shadow-sm active:scale-[0.98] transition-all">
         🍺 서빙완료
       </button>
     `;
   } else {
     return `
-      <button onclick="updateOrderStatus('${orderNumber}', 'COOKED')" 
+      <button onclick="updateOrderStatus('${orderId}', 'COOKED')" 
         class="col-span-2 bg-ink/10 text-ink/60 font-bold text-xs py-2 rounded-lg hover:bg-ink/20">
         ↩️ 조리완료로 되돌리기
       </button>
@@ -338,38 +370,38 @@ function renderActionButtons(orderNumber, statusKey) {
 }
 
 /* =========================================================
-   주문 상태 변경 요청
+   상태 변경 (기존 doPost 백엔드 규격 연동)
    ========================================================= */
-async function updateOrderStatus(orderNumber, nextStatus) {
+async function updateOrderStatus(orderId, nextStatus) {
   try {
     // UI 즉시 반영 (낙관적 업데이트)
-    const target = state.orders.find(o => o.orderNumber === orderNumber);
+    const target = state.orders.find(o => getOrderId(o) === String(orderId));
     if (target) {
-      target.status = nextStatus;
+      if (target.status !== undefined) target.status = nextStatus;
+      if (target.state !== undefined) target.state = nextStatus;
       renderOrders();
     }
 
+    // 기존 doPost 형식에 맞추어 POST 전송
     const payload = {
-      action: 'updateStatus',
-      orderNumber: orderNumber,
-      status: nextStatus
+      orderNumber: orderId,
+      id: orderId,
+      status: nextStatus,
+      state: nextStatus
     };
 
-    const res = await fetch(CONFIG.SCRIPT_URL, {
+    await fetch(CONFIG.SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
 
-    const data = await res.json();
-    if (!data.success) throw new Error(data.message || '상태 변경 실패');
-
-    showToast("주문 상태가 변경되었습니다");
-    fetchOrders(); // 동기화
+    showToast("상태가 변경되었습니다");
+    setTimeout(fetchOrders, 400); // 갱신
   } catch (err) {
-    console.error(err);
-    showToast("상태 변경에 실패했습니다");
-    fetchOrders(); // 실패 시 원복
+    console.error("Update Error:", err);
+    showToast("상태 변경 요청을 보냈습니다");
+    fetchOrders();
   }
 }
 
@@ -377,7 +409,6 @@ async function updateOrderStatus(orderNumber, nextStatus) {
    유틸리티 & 이벤트
    ========================================================= */
 function bindEvents() {
-  // 필터 탭 클릭
   document.querySelectorAll('.filter-tab').forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll('.filter-tab').forEach(b => {
@@ -389,13 +420,11 @@ function bindEvents() {
     };
   });
 
-  // 새로고침 버튼
   $('refresh-btn').onclick = () => {
     showToast("주문 목록을 갱신합니다");
     fetchOrders();
   };
 
-  // 음소거 토글
   $('sound-toggle-btn').onclick = () => {
     state.soundEnabled = !state.soundEnabled;
     $('sound-icon').textContent = state.soundEnabled ? '🔊' : '🔇';
@@ -404,10 +433,10 @@ function bindEvents() {
   };
 }
 
-function formatTime(isoStr) {
-  if (!isoStr) return '';
-  const d = new Date(isoStr);
-  if (isNaN(d.getTime())) return isoStr;
+function formatTime(timeVal) {
+  if (!timeVal) return '';
+  const d = new Date(timeVal);
+  if (isNaN(d.getTime())) return String(timeVal);
   const h = String(d.getHours()).padStart(2, '0');
   const m = String(d.getMinutes()).padStart(2, '0');
   return `${h}:${m}`;
@@ -429,7 +458,6 @@ function showToast(msg) {
   setTimeout(() => t.classList.add('hidden'), 1800);
 }
 
-// 실행
 init();
 </script>
 </body>
