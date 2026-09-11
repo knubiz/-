@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>청춘주막 - 주방/서빙 KDS</title>
+  <title>청춘주막 - 주방 KDS</title>
   <style>
     * {
       box-sizing: border-box;
@@ -40,7 +40,6 @@
       gap: 12px;
     }
 
-    /* 2시간 초과 필터 버튼 */
     .btn-filter-warning {
       background-color: #333;
       color: #ff4d4d;
@@ -107,13 +106,13 @@
       box-shadow: 0 0 10px rgba(230, 57, 70, 0.4);
     }
 
-    /* 1시간 30분 이상 경과 (주의) */
+    /* 30분 이상 경과 (주황불) */
     .table-card.warning-near {
-      border-color: #f1c40f !important;
-      box-shadow: 0 0 8px rgba(241, 196, 15, 0.5);
+      border-color: #ff9800 !important;
+      box-shadow: 0 0 10px rgba(255, 152, 0, 0.5);
     }
 
-    /* 2시간 이상 경과 (경고 - 빨간색 점멸) */
+    /* 1시간 이상 경과 (빨간불 점멸) */
     .table-card.warning-over {
       background-color: #3a0d10 !important;
       border-color: #ff0000 !important;
@@ -147,7 +146,6 @@
       text-align: right;
     }
 
-    /* Elapsed Time 디스플레이 */
     .elapsed-time {
       display: block;
       font-weight: bold;
@@ -155,7 +153,7 @@
       margin-top: 1px;
     }
     .elapsed-time.over { color: #ff4d4d; }
-    .elapsed-time.near { color: #f1c40f; }
+    .elapsed-time.near { color: #ff9800; }
 
     .table-summary {
       font-size: 0.8rem;
@@ -337,9 +335,9 @@
 <body>
 
   <div class="header">
-    <h1>👨‍🍳 주방/서빙 현황판 (KDS)</h1>
+    <h1>👨‍🍳 주방 현황판 (KDS)</h1>
     <div class="header-controls">
-      <button class="btn-filter-warning" id="btn-filter" onclick="toggleOverTimeFilter()">⚠️ 2시간 초과만 보기</button>
+      <button class="btn-filter-warning" id="btn-filter" onclick="toggleOverTimeFilter()">⚠️ 1시간 초과만 보기</button>
       <div class="status">
         <span class="status-dot"></span>
         <span id="sync-status">연결 중...</span>
@@ -356,11 +354,11 @@
         <button class="btn-close" onclick="closeModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <div id="modal-time-info" style="font-size:0.85rem; color:#f1c40f; margin-bottom:12px; font-weight:bold;"></div>
+        <div id="modal-time-info" style="font-size:0.85rem; color:#ff9800; margin-bottom:12px; font-weight:bold;"></div>
         <ul class="item-list" id="modal-item-list"></ul>
       </div>
       <div class="modal-footer">
-        <button class="btn-all-complete" onclick="completeAllTableItems()">테이블 퇴장 / 전체 완료</button>
+        <button class="btn-all-complete" onclick="completeAllTableItems()">테이블 전체 완료</button>
       </div>
     </div>
   </div>
@@ -370,8 +368,8 @@
       GAS_URL: 'https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec', 
       TOTAL_TABLES: 35,
       REFRESH_INTERVAL: 4000,
-      WARN_MINUTES_NEAR: 90,  // 1시간 30분 경과 시 주의
-      WARN_MINUTES_OVER: 120  // 2시간 경과 시 경고 (빨간색 점멸)
+      WARN_MINUTES_NEAR: 30,  // 30분 경과 시 주황불
+      WARN_MINUTES_OVER: 60   // 1시간 경과 시 빨간불
     };
 
     let currentActiveOrders = {};
@@ -382,7 +380,6 @@
       renderTableGrid();
       fetchKitchenOrders();
       setInterval(fetchKitchenOrders, CONFIG.REFRESH_INTERVAL);
-      // 10초마다 테이블별 경과시간 UI 업데이트
       setInterval(updateTimesUI, 10000);
     };
 
@@ -438,7 +435,6 @@
     function processOrders(orders) {
       currentActiveOrders = {}; 
 
-      // 1. 전체 카드 초기화
       for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
         const box = document.getElementById(`table-box-${i}`);
         if (box) {
@@ -449,7 +445,6 @@
         }
       }
 
-      // 2. 테이블별 주문 병합
       orders.forEach(order => {
         const rawTable = String(order.table || '');
         const match = rawTable.match(/\d+/);
@@ -499,7 +494,6 @@
         }
       });
 
-      // 3. 화면 UI 갱신 및 시간 계산
       updateTimesUI();
 
       if (selectedTableNum) {
@@ -523,14 +517,12 @@
           continue;
         }
 
-        // 경과 시간(분) 계산
         const diffMs = now - tableData.firstTimeObj;
         const diffMinutes = Math.floor(diffMs / (1000 * 60));
         const hours = Math.floor(diffMinutes / 60);
         const mins = diffMinutes % 60;
         const formattedElapsed = `${hours > 0 ? hours + '시간 ' : ''}${mins}분 경과`;
 
-        // 상태 ക്ലാ스 관리
         box.classList.add('active');
         box.classList.remove('warning-near', 'warning-over');
 
@@ -546,14 +538,12 @@
           elapsedClass = 'near';
         }
 
-        // 필터링 적용 ("2시간 초과만 보기" 활성화 시)
         if (isFilterOverTime && !isOver) {
           box.style.display = 'none';
         } else {
           box.style.display = 'flex';
         }
 
-        // UI 텍스트 갱신
         const firstItem = tableData.items[0].name;
         const totalQty = tableData.items.reduce((sum, item) => sum + item.qty, 0);
         const summaryText = tableData.items.length > 1 
@@ -562,13 +552,13 @@
 
         document.getElementById(`table-summary-${i}`).innerText = summaryText;
         document.getElementById(`table-time-${i}`).innerHTML = `
-          <span>입장: ${tableData.firstTimeStr}</span>
+          <span>주문: ${tableData.firstTimeStr}</span>
           <span class="elapsed-time ${elapsedClass}">⏱ ${formattedElapsed}</span>
         `;
 
         let badgeHtml = `<span class="item-count-badge">${totalQty}개 메뉴</span>`;
         if (isOver) {
-          badgeHtml += `<span class="over-time-badge">🚨 2시간 초과</span>`;
+          badgeHtml += `<span class="over-time-badge">🚨 1시간 지연</span>`;
         }
         document.getElementById(`table-badge-${i}`).innerHTML = badgeHtml;
       }
@@ -578,7 +568,7 @@
       isFilterOverTime = !isFilterOverTime;
       const btn = document.getElementById('btn-filter');
       btn.classList.toggle('active', isFilterOverTime);
-      btn.innerText = isFilterOverTime ? '📋 전체 테이블 보기' : '⚠️ 2시간 초과만 보기';
+      btn.innerText = isFilterOverTime ? '📋 전체 보기' : '⚠️ 1시간 지연만 보기';
       updateTimesUI();
     }
 
@@ -602,7 +592,7 @@
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
       document.getElementById('modal-title').innerText = `테이블 ${tableData.table}`;
-      document.getElementById('modal-time-info').innerText = `입장 시각: ${tableData.firstTimeStr} (총 ${diffMinutes}분 이용 중)`;
+      document.getElementById('modal-time-info').innerText = `최초 주문: ${tableData.firstTimeStr} (조리 지연: ${diffMinutes}분 경과)`;
 
       const modalItemList = document.getElementById('modal-item-list');
       modalItemList.innerHTML = '';
