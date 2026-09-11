@@ -1,661 +1,489 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>청춘주막 - 주방 KDS</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>무한해적상회 - 주방 KDS</title>
 
-    body {
-      background-color: #121212;
-      color: #ffffff;
-      padding: 15px;
-      user-select: none;
-    }
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #333;
-    }
-
-    .header h1 {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: #ff4d4d;
-    }
-
-    .header-controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .btn-filter-warning {
-      background-color: #333;
-      color: #ff4d4d;
-      border: 1px solid #ff4d4d;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-filter-warning.active {
-      background-color: #ff4d4d;
-      color: #fff;
-    }
-
-    .status {
-      font-size: 0.85rem;
-      color: #888;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      background-color: #2ec4b6;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .grid-container {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 10px;
-    }
-
-    @media (max-width: 600px) {
-      .grid-container {
-        grid-template-columns: repeat(5, 1fr);
-        gap: 6px;
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper: '#F5EFDD',
+          ink: '#26221C',
+          flag: '#C23B22',
+          flagdark: '#9E2E19',
+          gold: '#C89B3C',
+          night: '#1F2A3C',
+          nightlight: '#2E3E56',
+          soju: '#4C7A5A',
+        },
+        fontFamily: {
+          display: ['"Black Han Sans"', 'sans-serif'],
+          body: ['"Noto Sans KR"', 'sans-serif'],
+        },
+        boxShadow: {
+          card: '0 2px 10px rgba(38,34,28,0.08)',
+          lift: '0 8px 24px rgba(38,34,28,0.18)',
+        }
       }
     }
+  }
+</script>
 
-    .table-card {
-      background-color: #1e1e1e;
-      border: 2px solid #333;
-      border-radius: 10px;
-      padding: 10px 8px;
-      min-height: 105px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      position: relative;
-    }
+<style>
+  body { font-family: 'Noto Sans KR', sans-serif; word-break: keep-all; user-select: none; }
+  .font-display { font-family: 'Black Han Sans', sans-serif; letter-spacing: 0.5px; }
+  ::-webkit-scrollbar { display: none; }
+  * { -ms-overflow-style: none; scrollbar-width: none; }
 
-    .table-card.active {
-      background-color: #2a1215;
-      border-color: #e63946;
-      box-shadow: 0 0 10px rgba(230, 57, 70, 0.4);
-    }
+  .table-card { transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease; }
 
-    /* 30분 이상 경과 (주황불) */
-    .table-card.warning-near {
-      border-color: #ff9800 !important;
-      box-shadow: 0 0 10px rgba(255, 152, 0, 0.5);
-    }
+  .table-card.warning-near {
+    border-color: #C89B3C !important;
+    box-shadow: 0 0 0 3px rgba(200,155,60,0.18);
+  }
 
-    /* 1시간 이상 경과 (빨간불 점멸) */
-    .table-card.warning-over {
-      background-color: #3a0d10 !important;
-      border-color: #ff0000 !important;
-      animation: blink-border 1.2s infinite alternate;
-    }
+  .table-card.warning-over {
+    border-color: #C23B22 !important;
+    background-color: #FBEAE6 !important;
+    animation: blink-border 1.2s infinite alternate;
+  }
 
-    @keyframes blink-border {
-      0% { box-shadow: 0 0 5px #ff0000; border-color: #ff0000; }
-      100% { box-shadow: 0 0 18px #ff0000; border-color: #ff4d4d; }
-    }
+  @keyframes blink-border {
+    0%   { box-shadow: 0 0 0 3px rgba(194,59,34,0.12); }
+    100% { box-shadow: 0 0 0 5px rgba(194,59,34,0.32); }
+  }
 
-    .table-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
+  .over-time-badge { animation: blink-text 1s infinite alternate; }
+  @keyframes blink-text { 0% { opacity: 0.65; } 100% { opacity: 1; } }
 
-    .table-num {
-      font-size: 1.1rem;
-      font-weight: 800;
-      color: #ddd;
-    }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .fade-in { animation: fadeIn 0.2s ease-out both; }
 
-    .table-card.active .table-num {
-      color: #ff6b6b;
-    }
+  @keyframes sheetIn { from { transform: translateY(16px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+  .sheet-in { animation: sheetIn 0.22s ease-out both; }
 
-    .table-time {
-      font-size: 0.7rem;
-      color: #aaa;
-      text-align: right;
-    }
-
-    .elapsed-time {
-      display: block;
-      font-weight: bold;
-      font-size: 0.75rem;
-      margin-top: 1px;
-    }
-    .elapsed-time.over { color: #ff4d4d; }
-    .elapsed-time.near { color: #ff9800; }
-
-    .table-summary {
-      font-size: 0.8rem;
-      color: #bbb;
-      margin-top: 4px;
-      line-height: 1.2;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      word-break: break-all;
-    }
-
-    .table-card.active .table-summary {
-      color: #ffffff;
-      font-weight: 600;
-    }
-
-    .badge-group {
-      display: flex;
-      gap: 4px;
-      align-items: center;
-      margin-top: 4px;
-    }
-
-    .item-count-badge {
-      background-color: #e63946;
-      color: #fff;
-      font-size: 0.7rem;
-      padding: 2px 6px;
-      border-radius: 12px;
-      font-weight: bold;
-    }
-
-    .over-time-badge {
-      background-color: #ff0000;
-      color: #fff;
-      font-size: 0.68rem;
-      padding: 2px 6px;
-      border-radius: 12px;
-      font-weight: bold;
-      animation: blink-text 1s infinite alternate;
-    }
-
-    @keyframes blink-text {
-      0% { opacity: 0.6; }
-      100% { opacity: 1; }
-    }
-
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.75);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.2s ease;
-    }
-
-    .modal-overlay.open {
-      opacity: 1;
-      visibility: visible;
-    }
-
-    .modal-content {
-      background-color: #242424;
-      border-radius: 14px;
-      width: 90%;
-      max-width: 440px;
-      max-height: 80vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-      border: 1px solid #444;
-    }
-
-    .modal-header {
-      background-color: #8b0000;
-      padding: 14px 18px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: #fff;
-    }
-
-    .modal-title {
-      font-size: 1.1rem;
-      font-weight: bold;
-    }
-
-    .btn-close {
-      background: none;
-      border: none;
-      color: #fff;
-      font-size: 1.4rem;
-      cursor: pointer;
-    }
-
-    .modal-body {
-      padding: 16px;
-      overflow-y: auto;
-      flex: 1;
-    }
-
-    .item-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .item-card {
-      background-color: #333;
-      padding: 12px 14px;
-      border-radius: 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .item-info {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .item-name {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #fff;
-    }
-
-    .item-qty {
-      background-color: #f1f2f6;
-      color: #2f3542;
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      font-weight: bold;
-    }
-
-    .modal-footer {
-      padding: 14px 16px;
-      background-color: #1c1c1c;
-      border-top: 1px solid #333;
-    }
-
-    .btn-all-complete {
-      width: 100%;
-      background-color: #2e7d32;
-      color: #fff;
-      border: none;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    .btn-complete {
-      background-color: #2563eb;
-      color: #fff;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      font-weight: bold;
-      cursor: pointer;
-    }
-  </style>
+  .unit-dot { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  .line-clamp-2 {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+</style>
 </head>
-<body>
 
-  <div class="header">
-    <h1>👨‍🍳 주방 현황판 (KDS)</h1>
-    <div class="header-controls">
-      <button class="btn-filter-warning" id="btn-filter" onclick="toggleOverTimeFilter()">⚠️ 1시간 초과만 보기</button>
-      <div class="status">
-        <span class="status-dot"></span>
-        <span id="sync-status">연결 중...</span>
-      </div>
+<body class="bg-paper text-ink min-h-screen pb-6">
+
+<!-- 헤더 -->
+<header class="bg-night text-paper px-4 pt-4 pb-3 sticky top-0 z-20 shadow-card">
+  <div class="flex items-center justify-between gap-2">
+    <h1 class="font-display text-lg sm:text-xl">👨‍🍳 무한해적상회 · 주방 현황판</h1>
+    <div class="flex items-center gap-1.5 text-[11px] text-paper/70">
+      <span id="status-dot" class="w-2 h-2 rounded-full bg-soju"></span>
+      <span id="sync-status">연결 중...</span>
     </div>
   </div>
+  <div class="mt-2.5 flex items-center gap-1.5 overflow-x-auto">
+    <button id="btn-filter" onclick="toggleOverTimeFilter()"
+      class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 border-flag text-flag bg-paper transition-colors">
+      ⚠️ 1시간 지연만 보기
+    </button>
+  </div>
+</header>
 
-  <div class="grid-container" id="grid-container"></div>
+<!-- 테이블 그리드 -->
+<main class="px-3 pt-3">
+  <div class="grid grid-cols-4 sm:grid-cols-5 gap-2" id="grid-container"></div>
+</main>
 
-  <div class="modal-overlay" id="modal-overlay">
-    <div class="modal-content">
-      <div class="modal-header">
-        <div class="modal-title" id="modal-title">테이블 0</div>
-        <button class="btn-close" onclick="closeModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div id="modal-time-info" style="font-size:0.85rem; color:#ff9800; margin-bottom:12px; font-weight:bold;"></div>
-        <ul class="item-list" id="modal-item-list"></ul>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-all-complete" onclick="completeAllTableItems()">테이블 전체 완료</button>
-      </div>
+<!-- 상세 모달 -->
+<div class="fixed inset-0 z-40 bg-ink/60 hidden items-center justify-center p-4 fade-in" id="modal-overlay">
+  <div class="bg-paper rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col shadow-lift border border-ink/10 sheet-in">
+    <div class="bg-flag text-paper px-4 py-3 flex items-center justify-between rounded-t-2xl shrink-0">
+      <span class="font-display text-lg" id="modal-title">테이블 0</span>
+      <button class="text-2xl leading-none px-1" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="px-4 pt-3 pb-2 overflow-y-auto flex-1">
+      <p class="text-xs font-bold text-flag mb-3" id="modal-time-info"></p>
+      <ul class="space-y-2.5" id="modal-item-list"></ul>
+    </div>
+    <div class="px-4 pt-3 pb-4 border-t border-ink/10 shrink-0">
+      <p class="text-[11px] text-ink/50 text-center mb-2">동그라미를 하나씩 눌러 조리 완료 표시를 할 수 있어요</p>
+      <button class="w-full bg-soju text-paper font-display text-base py-3 rounded-xl active:scale-[0.98] transition-transform"
+        onclick="completeAllTableItems()">
+        테이블 전체 완료
+      </button>
     </div>
   </div>
+</div>
 
-  <script>
-    const CONFIG = {
-      GAS_URL: 'https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec', 
-      TOTAL_TABLES: 35,
-      REFRESH_INTERVAL: 4000,
-      WARN_MINUTES_NEAR: 30,  // 30분 경과 시 주황불
-      WARN_MINUTES_OVER: 60   // 1시간 경과 시 빨간불
-    };
+<script>
+/* =========================================================
+   설정값
+   ========================================================= */
+const CONFIG = {
+  GAS_URL: 'https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec',
+  TOTAL_TABLES: 35,
+  REFRESH_INTERVAL: 4000,
+  WARN_MINUTES_NEAR: 30,
+  WARN_MINUTES_OVER: 60,
+};
 
-    let currentActiveOrders = {};
-    let selectedTableNum = null;
-    let isFilterOverTime = false;
+let currentActiveOrders = {};
+let selectedTableNum = null;
+let isFilterOverTime = false;
 
-    window.onload = function() {
-      renderTableGrid();
+/* rowNum -> 몇 개까지 로컬로 "완료" 표시했는지 (전체 수량에 도달하면 서버에 완료 요청) */
+let unitProgress = {};
+
+const $ = (id) => document.getElementById(id);
+
+window.onload = function () {
+  renderTableGrid();
+  fetchKitchenOrders();
+  setInterval(fetchKitchenOrders, CONFIG.REFRESH_INTERVAL);
+  setInterval(updateTimesUI, 10000);
+};
+
+/* =========================================================
+   테이블 그리드
+   ========================================================= */
+function renderTableGrid() {
+  const container = $('grid-container');
+  container.innerHTML = '';
+
+  for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+    const card = document.createElement('div');
+    card.className = 'table-card bg-white rounded-xl border-2 border-ink/10 shadow-card p-2.5 min-h-[100px] flex flex-col justify-between cursor-pointer active:scale-[0.97] transition-transform';
+    card.id = `table-box-${i}`;
+    card.onclick = () => openModal(i);
+
+    card.innerHTML = `
+      <div class="flex justify-between items-start">
+        <span class="font-display text-base text-ink/70" id="table-num-${i}">${i}</span>
+        <div class="text-[10px] text-ink/40 text-right" id="table-time-${i}"></div>
+      </div>
+      <div class="text-[11px] text-ink/50 mt-1 line-clamp-2" id="table-summary-${i}">빈 테이블</div>
+      <div class="flex gap-1 mt-1 flex-wrap" id="table-badge-${i}"></div>
+    `;
+    container.appendChild(card);
+  }
+}
+
+/* =========================================================
+   데이터 가져오기
+   ========================================================= */
+function fetchKitchenOrders() {
+  fetch(`${CONFIG.GAS_URL}?action=kitchen`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.orders) {
+        processOrders(data.orders);
+        $('sync-status').innerText = '실시간 수신 중';
+        $('status-dot').className = 'w-2 h-2 rounded-full bg-soju';
+      }
+    })
+    .catch(err => {
+      console.error('주문 불러오기 오류:', err);
+      $('sync-status').innerText = '연결 확인 필요';
+      $('status-dot').className = 'w-2 h-2 rounded-full bg-flag';
+    });
+}
+
+function parseOrderDate(timeStr) {
+  if (!timeStr) return new Date();
+  const now = new Date();
+  const parts = timeStr.split(':');
+  if (parts.length >= 2) {
+    now.setHours(parseInt(parts[0], 10));
+    now.setMinutes(parseInt(parts[1], 10));
+    now.setSeconds(0);
+  }
+  return now;
+}
+
+/* =========================================================
+   주문 병합
+   같은 메뉴가 여러 번 주문되면 occurrences 배열에 각 주문 건(rowNum)을
+   별도로 저장해서, 조리 완료도 각 건 단위(그리고 그 안에서 1개씩)로
+   처리할 수 있도록 한다.
+   ========================================================= */
+function processOrders(orders) {
+  currentActiveOrders = {};
+
+  for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+    const box = $(`table-box-${i}`);
+    if (box) {
+      box.className = 'table-card bg-white rounded-xl border-2 border-ink/10 shadow-card p-2.5 min-h-[100px] flex flex-col justify-between cursor-pointer active:scale-[0.97] transition-transform';
+      $(`table-summary-${i}`).innerText = '빈 테이블';
+      $(`table-time-${i}`).innerHTML = '';
+      $(`table-badge-${i}`).innerHTML = '';
+    }
+  }
+
+  orders.forEach(order => {
+    const rawTable = String(order.table || '');
+    const match = rawTable.match(/\d+/);
+    const tableNum = match ? parseInt(match[0], 10) : null;
+
+    if (tableNum && tableNum >= 1 && tableNum <= CONFIG.TOTAL_TABLES) {
+      const validItems = (order.items || []).filter(item => {
+        const name = String(item.name || '').trim();
+        return !name.startsWith('인원') && !name.includes('인원수');
+      });
+
+      if (validItems.length === 0) return;
+
+      if (!currentActiveOrders[tableNum]) {
+        currentActiveOrders[tableNum] = {
+          table: tableNum,
+          firstTimeStr: order.time,
+          firstTimeObj: parseOrderDate(order.time),
+          orderNumbers: [order.orderNumber],
+          items: []
+        };
+      } else {
+        if (!currentActiveOrders[tableNum].orderNumbers.includes(order.orderNumber)) {
+          currentActiveOrders[tableNum].orderNumbers.push(order.orderNumber);
+        }
+      }
+
+      validItems.forEach(newItem => {
+        const qty = parseInt(newItem.qty || 1, 10);
+        const tableData = currentActiveOrders[tableNum];
+        let existingItem = tableData.items.find(i => i.name === newItem.name);
+
+        const occurrence = { rowNum: newItem.rowNum, orderId: order.orderNumber, qty };
+
+        if (existingItem) {
+          existingItem.qty += qty;
+          existingItem.occurrences.push(occurrence);
+        } else {
+          tableData.items.push({
+            name: newItem.name,
+            qty: qty,
+            occurrences: [occurrence]
+          });
+        }
+      });
+    }
+  });
+
+  updateTimesUI();
+
+  if (selectedTableNum) {
+    if (currentActiveOrders[selectedTableNum]) {
+      renderModalContent(currentActiveOrders[selectedTableNum]);
+    } else {
+      closeModal();
+    }
+  }
+}
+
+/* =========================================================
+   경과시간 & 카드 표시
+   ========================================================= */
+function updateTimesUI() {
+  const now = new Date();
+
+  for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+    const box = $(`table-box-${i}`);
+    const tableData = currentActiveOrders[i];
+
+    if (!tableData || !tableData.items || tableData.items.length === 0) {
+      if (box) box.style.display = isFilterOverTime ? 'none' : 'flex';
+      continue;
+    }
+
+    const diffMs = now - tableData.firstTimeObj;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const hours = Math.floor(diffMinutes / 60);
+    const mins = diffMinutes % 60;
+    const formattedElapsed = `${hours > 0 ? hours + '시간 ' : ''}${mins}분 경과`;
+
+    box.classList.remove('warning-near', 'warning-over');
+    box.classList.add('border-flag/40');
+
+    let isOver = false;
+    let elapsedClass = 'text-ink/50';
+
+    if (diffMinutes >= CONFIG.WARN_MINUTES_OVER) {
+      box.classList.add('warning-over');
+      elapsedClass = 'text-flag';
+      isOver = true;
+    } else if (diffMinutes >= CONFIG.WARN_MINUTES_NEAR) {
+      box.classList.add('warning-near');
+      elapsedClass = 'text-gold';
+    }
+
+    box.style.display = (isFilterOverTime && !isOver) ? 'none' : 'flex';
+
+    const firstItem = tableData.items[0].name;
+    const totalQty = tableData.items.reduce((sum, item) => sum + item.qty, 0);
+    const summaryText = tableData.items.length > 1
+      ? `${firstItem} 외 ${tableData.items.length - 1}건`
+      : `${firstItem} ${tableData.items[0].qty}개`;
+
+    $(`table-summary-${i}`).innerText = summaryText;
+    $(`table-time-${i}`).innerHTML = `
+      <span>${tableData.firstTimeStr}</span>
+      <span class="block font-bold text-[11px] ${elapsedClass}">⏱ ${formattedElapsed}</span>
+    `;
+
+    let badgeHtml = `<span class="bg-night text-paper text-[10px] font-bold px-1.5 py-0.5 rounded-full">${totalQty}개</span>`;
+    if (isOver) {
+      badgeHtml += `<span class="over-time-badge bg-flag text-paper text-[10px] font-bold px-1.5 py-0.5 rounded-full">🚨 지연</span>`;
+    }
+    $(`table-badge-${i}`).innerHTML = badgeHtml;
+  }
+}
+
+function toggleOverTimeFilter() {
+  isFilterOverTime = !isFilterOverTime;
+  const btn = $('btn-filter');
+  btn.classList.toggle('bg-flag', isFilterOverTime);
+  btn.classList.toggle('text-paper', isFilterOverTime);
+  btn.classList.toggle('bg-paper', !isFilterOverTime);
+  btn.classList.toggle('text-flag', !isFilterOverTime);
+  btn.innerText = isFilterOverTime ? '📋 전체 보기' : '⚠️ 1시간 지연만 보기';
+  updateTimesUI();
+}
+
+/* =========================================================
+   모달
+   ========================================================= */
+function openModal(tableNum) {
+  const tableData = currentActiveOrders[tableNum];
+  if (!tableData || !tableData.items || tableData.items.length === 0) return;
+
+  selectedTableNum = tableNum;
+  renderModalContent(tableData);
+  const overlay = $('modal-overlay');
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
+}
+
+function closeModal() {
+  selectedTableNum = null;
+  const overlay = $('modal-overlay');
+  overlay.classList.add('hidden');
+  overlay.classList.remove('flex');
+}
+
+function renderModalContent(tableData) {
+  const now = new Date();
+  const diffMs = now - tableData.firstTimeObj;
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+  $('modal-title').innerText = `테이블 ${tableData.table}`;
+  $('modal-time-info').innerText = `최초 주문 ${tableData.firstTimeStr} · 조리 지연 ${diffMinutes}분 경과`;
+
+  const list = $('modal-item-list');
+  list.innerHTML = '';
+
+  tableData.items.forEach(item => {
+    const li = document.createElement('li');
+    li.className = 'bg-white rounded-xl shadow-card p-3';
+
+    let dotsHtml = '';
+    item.occurrences.forEach(occ => {
+      const done = unitProgress[occ.rowNum] || 0;
+      let rowDots = '';
+      for (let idx = 0; idx < occ.qty; idx++) {
+        const isDone = idx < done;
+        rowDots += `
+          <button
+            class="unit-dot w-7 h-7 rounded-full border-2 font-display text-xs flex items-center justify-center active:scale-90 transition-transform ${
+              isDone
+                ? 'bg-soju border-soju text-paper'
+                : 'bg-paper border-ink/20 text-ink/40'
+            }"
+            onclick="toggleUnit('${occ.rowNum}', '${occ.orderId}', ${occ.qty}, ${idx})">
+            ${isDone ? '✓' : idx + 1}
+          </button>`;
+      }
+      dotsHtml += `<div class="flex items-center gap-1.5 flex-wrap mt-1.5">${rowDots}</div>`;
+    });
+
+    li.innerHTML = `
+      <div class="flex items-center justify-between mb-0.5">
+        <span class="font-bold text-sm">${item.name}</span>
+        <span class="bg-ink/5 text-ink/60 text-xs font-bold px-2 py-0.5 rounded-full">${item.qty}개</span>
+      </div>
+      ${dotsHtml}
+    `;
+    list.appendChild(li);
+  });
+}
+
+/* =========================================================
+   개별(1개씩) 조리 완료
+   - 동그라미를 순서대로 눌러 완료 표시
+   - 이미 완료로 표시한 동그라미를 다시 누르면 그 지점까지 취소(되돌리기)
+   - 한 주문 건(rowNum)의 수량을 모두 완료 표시하면 그 시점에 서버로 완료 요청 전송
+   ========================================================= */
+function toggleUnit(rowNum, orderId, unitTotal, idx) {
+  const done = unitProgress[rowNum] || 0;
+
+  if (idx < done) {
+    // 완료 취소: 그 지점까지 되돌리기
+    unitProgress[rowNum] = idx;
+    if (selectedTableNum) renderModalContent(currentActiveOrders[selectedTableNum]);
+    return;
+  }
+  if (idx > done) return; // 순서를 건너뛰어 누를 수는 없음
+
+  unitProgress[rowNum] = done + 1;
+
+  if (selectedTableNum) renderModalContent(currentActiveOrders[selectedTableNum]);
+
+  if (unitProgress[rowNum] >= unitTotal) {
+    fetch(CONFIG.GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'completeItem', rowNum, orderId })
+    })
+      .then(() => {
+        delete unitProgress[rowNum];
+        fetchKitchenOrders();
+      })
+      .catch(err => {
+        console.error('출고 오류:', err);
+        unitProgress[rowNum] = unitTotal - 1; // 실패 시 마지막 한 칸 되돌리기
+        if (selectedTableNum) renderModalContent(currentActiveOrders[selectedTableNum]);
+      });
+  }
+}
+
+function completeAllTableItems() {
+  if (!selectedTableNum || !currentActiveOrders[selectedTableNum]) return;
+
+  const tableData = currentActiveOrders[selectedTableNum];
+  tableData.items.forEach(item => {
+    item.occurrences.forEach(occ => delete unitProgress[occ.rowNum]);
+  });
+
+  const orderNumbers = tableData.orderNumbers;
+  const promises = orderNumbers.map(orderNum =>
+    fetch(CONFIG.GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'completeCooking', orderNumber: orderNum })
+    })
+  );
+
+  Promise.all(promises)
+    .then(() => {
+      closeModal();
       fetchKitchenOrders();
-      setInterval(fetchKitchenOrders, CONFIG.REFRESH_INTERVAL);
-      setInterval(updateTimesUI, 10000);
-    };
-
-    function renderTableGrid() {
-      const container = document.getElementById('grid-container');
-      container.innerHTML = '';
-
-      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
-        const card = document.createElement('div');
-        card.className = 'table-card';
-        card.id = `table-box-${i}`;
-        card.onclick = () => openModal(i);
-
-        card.innerHTML = `
-          <div class="table-header">
-            <span class="table-num">${i}</span>
-            <div class="table-time" id="table-time-${i}"></div>
-          </div>
-          <div class="table-summary" id="table-summary-${i}">빈 테이블</div>
-          <div class="badge-group" id="table-badge-${i}"></div>
-        `;
-        container.appendChild(card);
-      }
-    }
-
-    function fetchKitchenOrders() {
-      fetch(`${CONFIG.GAS_URL}?action=kitchen`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.orders) {
-            processOrders(data.orders);
-            document.getElementById('sync-status').innerText = '실시간 수신 중';
-          }
-        })
-        .catch(err => {
-          console.error('주문 불러오기 오류:', err);
-          document.getElementById('sync-status').innerText = '연결 확인 필요';
-        });
-    }
-
-    function parseOrderDate(timeStr) {
-      if (!timeStr) return new Date();
-      const now = new Date();
-      const parts = timeStr.split(':');
-      if (parts.length >= 2) {
-        now.setHours(parseInt(parts[0], 10));
-        now.setMinutes(parseInt(parts[1], 10));
-        now.setSeconds(0);
-      }
-      return now;
-    }
-
-    function processOrders(orders) {
-      currentActiveOrders = {}; 
-
-      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
-        const box = document.getElementById(`table-box-${i}`);
-        if (box) {
-          box.className = 'table-card';
-          document.getElementById(`table-summary-${i}`).innerText = '빈 테이블';
-          document.getElementById(`table-time-${i}`).innerText = '';
-          document.getElementById(`table-badge-${i}`).innerHTML = '';
-        }
-      }
-
-      orders.forEach(order => {
-        const rawTable = String(order.table || '');
-        const match = rawTable.match(/\d+/);
-        const tableNum = match ? parseInt(match[0], 10) : null;
-        
-        if (tableNum && tableNum >= 1 && tableNum <= CONFIG.TOTAL_TABLES) {
-          const validItems = (order.items || []).filter(item => {
-            const name = String(item.name || '').trim();
-            return !name.startsWith("인원") && !name.includes("인원수");
-          });
-
-          if (validItems.length === 0) return;
-
-          if (!currentActiveOrders[tableNum]) {
-            currentActiveOrders[tableNum] = {
-              table: tableNum,
-              firstTimeStr: order.time,
-              firstTimeObj: parseOrderDate(order.time),
-              orderNumbers: [order.orderNumber],
-              items: []
-            };
-          } else {
-            if (!currentActiveOrders[tableNum].orderNumbers.includes(order.orderNumber)) {
-              currentActiveOrders[tableNum].orderNumbers.push(order.orderNumber);
-            }
-          }
-
-          validItems.forEach(newItem => {
-            const qty = parseInt(newItem.qty || 1, 10);
-            const existingItem = currentActiveOrders[tableNum].items.find(i => i.name === newItem.name);
-
-            if (existingItem) {
-              existingItem.qty += qty;
-              existingItem.rowNums.push(newItem.rowNum);
-              if (!existingItem.orderIds.includes(order.orderNumber)) {
-                existingItem.orderIds.push(order.orderNumber);
-              }
-            } else {
-              currentActiveOrders[tableNum].items.push({
-                name: newItem.name,
-                qty: qty,
-                rowNums: [newItem.rowNum],
-                orderIds: [order.orderNumber]
-              });
-            }
-          });
-        }
-      });
-
-      updateTimesUI();
-
-      if (selectedTableNum) {
-        if (currentActiveOrders[selectedTableNum]) {
-          renderModalContent(currentActiveOrders[selectedTableNum]);
-        } else {
-          closeModal();
-        }
-      }
-    }
-
-    function updateTimesUI() {
-      const now = new Date();
-
-      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
-        const box = document.getElementById(`table-box-${i}`);
-        const tableData = currentActiveOrders[i];
-
-        if (!tableData || !tableData.items || tableData.items.length === 0) {
-          if (box) box.style.display = isFilterOverTime ? 'none' : 'flex';
-          continue;
-        }
-
-        const diffMs = now - tableData.firstTimeObj;
-        const diffMinutes = Math.floor(diffMs / (1000 * 60));
-        const hours = Math.floor(diffMinutes / 60);
-        const mins = diffMinutes % 60;
-        const formattedElapsed = `${hours > 0 ? hours + '시간 ' : ''}${mins}분 경과`;
-
-        box.classList.add('active');
-        box.classList.remove('warning-near', 'warning-over');
-
-        let isOver = false;
-        let elapsedClass = '';
-
-        if (diffMinutes >= CONFIG.WARN_MINUTES_OVER) {
-          box.classList.add('warning-over');
-          elapsedClass = 'over';
-          isOver = true;
-        } else if (diffMinutes >= CONFIG.WARN_MINUTES_NEAR) {
-          box.classList.add('warning-near');
-          elapsedClass = 'near';
-        }
-
-        if (isFilterOverTime && !isOver) {
-          box.style.display = 'none';
-        } else {
-          box.style.display = 'flex';
-        }
-
-        const firstItem = tableData.items[0].name;
-        const totalQty = tableData.items.reduce((sum, item) => sum + item.qty, 0);
-        const summaryText = tableData.items.length > 1 
-          ? `${firstItem} 외 ${tableData.items.length - 1}건` 
-          : `${firstItem} ${tableData.items[0].qty}개`;
-
-        document.getElementById(`table-summary-${i}`).innerText = summaryText;
-        document.getElementById(`table-time-${i}`).innerHTML = `
-          <span>주문: ${tableData.firstTimeStr}</span>
-          <span class="elapsed-time ${elapsedClass}">⏱ ${formattedElapsed}</span>
-        `;
-
-        let badgeHtml = `<span class="item-count-badge">${totalQty}개 메뉴</span>`;
-        if (isOver) {
-          badgeHtml += `<span class="over-time-badge">🚨 1시간 지연</span>`;
-        }
-        document.getElementById(`table-badge-${i}`).innerHTML = badgeHtml;
-      }
-    }
-
-    function toggleOverTimeFilter() {
-      isFilterOverTime = !isFilterOverTime;
-      const btn = document.getElementById('btn-filter');
-      btn.classList.toggle('active', isFilterOverTime);
-      btn.innerText = isFilterOverTime ? '📋 전체 보기' : '⚠️ 1시간 지연만 보기';
-      updateTimesUI();
-    }
-
-    function openModal(tableNum) {
-      const tableData = currentActiveOrders[tableNum];
-      if (!tableData || !tableData.items || tableData.items.length === 0) return;
-
-      selectedTableNum = tableNum;
-      renderModalContent(tableData);
-      document.getElementById('modal-overlay').classList.add('open');
-    }
-
-    function closeModal() {
-      selectedTableNum = null;
-      document.getElementById('modal-overlay').classList.remove('open');
-    }
-
-    function renderModalContent(tableData) {
-      const now = new Date();
-      const diffMs = now - tableData.firstTimeObj;
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-      document.getElementById('modal-title').innerText = `테이블 ${tableData.table}`;
-      document.getElementById('modal-time-info').innerText = `최초 주문: ${tableData.firstTimeStr} (조리 지연: ${diffMinutes}분 경과)`;
-
-      const modalItemList = document.getElementById('modal-item-list');
-      modalItemList.innerHTML = '';
-
-      tableData.items.forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'item-card';
-        
-        const rowNumsJson = JSON.stringify(item.rowNums);
-        const orderIdsJson = JSON.stringify(item.orderIds);
-
-        li.innerHTML = `
-          <div class="item-info">
-            <span class="item-name">${item.name}</span>
-            <span class="item-qty">${item.qty}개</span>
-          </div>
-          <button class="btn-complete" onclick='completeMergedItem(${rowNumsJson}, ${orderIdsJson})'>
-            ✔ 출고
-          </button>
-        `;
-        modalItemList.appendChild(li);
-      });
-    }
-
-    function completeMergedItem(rowNums, orderIds) {
-      const promises = rowNums.map((rowNum, idx) => {
-        return fetch(CONFIG.GAS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            action: 'completeItem',
-            rowNum: rowNum,
-            orderId: orderIds[idx] || orderIds[0]
-          })
-        });
-      });
-
-      Promise.all(promises).then(() => {
-        fetchKitchenOrders();
-      }).catch(err => console.error("출고 오류:", err));
-    }
-
-    function completeAllTableItems() {
-      if (!selectedTableNum || !currentActiveOrders[selectedTableNum]) return;
-
-      const orderNumbers = currentActiveOrders[selectedTableNum].orderNumbers;
-      
-      const promises = orderNumbers.map(orderNum => {
-        return fetch(CONFIG.GAS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            action: 'completeCooking',
-            orderNumber: orderNum
-          })
-        });
-      });
-
-      Promise.all(promises).then(() => {
-        closeModal();
-        fetchKitchenOrders();
-      }).catch(err => console.error("전체 완료 오류:", err));
-    }
-  </script>
+    })
+    .catch(err => console.error('전체 완료 오류:', err));
+}
+</script>
 </body>
 </html>
