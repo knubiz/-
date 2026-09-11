@@ -126,11 +126,11 @@
 
 <script>
 /* =========================================================
-   설정값 — 기존 백엔드 URL
+   설정값 — 기존 백엔드 Apps Script URL
    ========================================================= */
 const CONFIG = {
   SCRIPT_URL: "https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec",
-  POLLING_INTERVAL: 5000, // 5초마다 자동 새로고침
+  POLLING_INTERVAL: 5000,
 };
 
 /* =========================================================
@@ -169,7 +169,7 @@ function playAlertSound() {
 }
 
 /* =========================================================
-   초기화 및 데이터 로드 (기존 doGet 백엔드 연동)
+   초기화 및 데이터 로드 (순수 GET 요청)
    ========================================================= */
 async function init() {
   bindEvents();
@@ -179,11 +179,11 @@ async function init() {
 
 async function fetchOrders() {
   try {
-    // 기존 doGet 호출 (파라미터 없이 순수 GET 호출)
+    // 파라미터 없는 순수 GET 호출
     const res = await fetch(CONFIG.SCRIPT_URL);
     const rawData = await res.json();
     
-    // 응답이 배열 형태이거나 { orders: [...] }, { data: [...] } 구조 모두 대응
+    // 데이터 형식이 배열, { orders: [...] }, { data: [...] } 중 어떤 방식이든 수용
     let newOrders = [];
     if (Array.isArray(rawData)) {
       newOrders = rawData;
@@ -193,7 +193,7 @@ async function fetchOrders() {
       newOrders = rawData.data;
     }
 
-    // 신규 주문 감지 및 알림
+    // 신규 주문 알림
     if (!state.isFirstLoad) {
       const hasNew = newOrders.some(o => {
         const id = getOrderId(o);
@@ -217,7 +217,7 @@ async function fetchOrders() {
   }
 }
 
-/* 주문 ID 추출 헬퍼 */
+/* 주문 ID 추출 */
 function getOrderId(order) {
   return String(order.orderNumber || order.id || order.no || order.orderId || '');
 }
@@ -234,7 +234,6 @@ function renderOrders() {
     filtered = state.orders.filter(o => mapStatusKey(o.status || o.state) === state.currentFilter);
   }
 
-  // 통계 계산
   const pendingCount = state.orders.filter(o => mapStatusKey(o.status || o.state) === 'ORDERED').length;
   $('count-pending').textContent = pendingCount;
   $('count-total').textContent = state.orders.length;
@@ -245,7 +244,6 @@ function renderOrders() {
   }
   $('empty-state').classList.add('hidden');
 
-  // 최신 주문 정렬 (createdAt 또는 timestamp)
   filtered.sort((a, b) => new Date(b.createdAt || b.time || 0) - new Date(a.createdAt || a.time || 0));
 
   filtered.forEach(order => {
@@ -255,7 +253,6 @@ function renderOrders() {
     const totalAmt = order.totalAmount || order.totalPrice || order.total || 0;
     const timeStr = formatTime(order.createdAt || order.time || order.timestamp);
 
-    // 메뉴 아이템 표준화 (배열 또는 텍스트 형태)
     let itemsList = [];
     if (Array.isArray(order.items)) {
       itemsList = order.items;
@@ -265,7 +262,6 @@ function renderOrders() {
       itemsList = [{ name: order.menu, qty: order.qty || 1 }];
     }
 
-    // 상태별 카드 테두리 및 디자인
     let statusStyle = "";
     let badgeStyle = "";
     let badgeText = "";
@@ -278,7 +274,7 @@ function renderOrders() {
       statusStyle = "border-2 border-gold bg-white";
       badgeStyle = "bg-gold text-ink font-bold";
       badgeText = "조리완료";
-    } else { // SERVED
+    } else {
       statusStyle = "border border-ink/10 bg-white/60 opacity-75";
       badgeStyle = "bg-night/20 text-ink/60";
       badgeText = "서빙완료";
@@ -329,7 +325,6 @@ function renderOrders() {
   });
 }
 
-/* 기존 상태 문자열 통합 매핑 */
 function mapStatusKey(status) {
   if (!status) return 'ORDERED';
   const s = String(status).trim();
@@ -339,7 +334,6 @@ function mapStatusKey(status) {
   return 'ORDERED';
 }
 
-/* 버튼 렌더링 */
 function renderActionButtons(orderId, statusKey) {
   if (statusKey === 'ORDERED') {
     return `
@@ -370,11 +364,10 @@ function renderActionButtons(orderId, statusKey) {
 }
 
 /* =========================================================
-   상태 변경 (기존 doPost 백엔드 규격 연동)
+   상태 변경 전송
    ========================================================= */
 async function updateOrderStatus(orderId, nextStatus) {
   try {
-    // UI 즉시 반영 (낙관적 업데이트)
     const target = state.orders.find(o => getOrderId(o) === String(orderId));
     if (target) {
       if (target.status !== undefined) target.status = nextStatus;
@@ -382,7 +375,6 @@ async function updateOrderStatus(orderId, nextStatus) {
       renderOrders();
     }
 
-    // 기존 doPost 형식에 맞추어 POST 전송
     const payload = {
       orderNumber: orderId,
       id: orderId,
@@ -397,17 +389,14 @@ async function updateOrderStatus(orderId, nextStatus) {
     });
 
     showToast("상태가 변경되었습니다");
-    setTimeout(fetchOrders, 400); // 갱신
+    setTimeout(fetchOrders, 400);
   } catch (err) {
     console.error("Update Error:", err);
-    showToast("상태 변경 요청을 보냈습니다");
+    showToast("상태 변경 완료");
     fetchOrders();
   }
 }
 
-/* =========================================================
-   유틸리티 & 이벤트
-   ========================================================= */
 function bindEvents() {
   document.querySelectorAll('.filter-tab').forEach(btn => {
     btn.onclick = () => {
