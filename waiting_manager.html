@@ -64,7 +64,8 @@
 <body class="bg-paper text-ink min-h-screen pb-8">
 
 <!-- 헤더 -->
-<header class="bg-night text-paper px-4 pt-4 pb-3 sticky top-0 z-20 shadow-card">
+<header class="bg-night text-paper px-4 pt-4 pb-3 sticky top-0 z-20 shadow-card space-y-2.5">
+  <!-- 상단 제목 및 상태 -->
   <div class="flex items-center justify-between gap-2">
     <h1 class="font-display text-lg sm:text-xl">🎫 무한해적상회 · 웨이팅 관리</h1>
     <div class="flex items-center gap-1.5 text-[11px] text-paper/70">
@@ -72,11 +73,21 @@
       <span id="sync-status">연결 중...</span>
     </div>
   </div>
-  <div class="mt-2.5 flex items-center gap-1.5 overflow-x-auto">
-    <button id="tab-waiting" onclick="switchFilter('waiting')" class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors"></button>
+
+  <!-- 1차 필터: 상태 (대기/전체/입장/취소) -->
+  <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+    <button id="tab-waiting" onclick="switchFilter('waiting')" class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors">대기중</button>
     <button id="tab-all" onclick="switchFilter('all')" class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors">전체</button>
     <button id="tab-entered" onclick="switchFilter('entered')" class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors">입장완료</button>
     <button id="tab-cancelled" onclick="switchFilter('cancelled')" class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors">취소</button>
+  </div>
+
+  <!-- 2차 필터: 인원수 구분 (전체인원 / 1~4인 / 5인 이상) -->
+  <div class="flex items-center gap-1 pt-1 border-t border-paper/10 text-xs font-bold">
+    <span class="text-paper/50 text-[11px] mr-1 shrink-0">👥 인원필터:</span>
+    <button id="size-all" onclick="switchSizeFilter('all')" class="px-2.5 py-1 rounded-lg transition-colors">전체</button>
+    <button id="size-small" onclick="switchSizeFilter('small')" class="px-2.5 py-1 rounded-lg transition-colors">1~4인</button>
+    <button id="size-large" onclick="switchSizeFilter('large')" class="px-2.5 py-1 rounded-lg transition-colors">5인+ (단체)</button>
   </div>
 </header>
 
@@ -98,13 +109,14 @@ const CONFIG = {
 
 let waitings = [];
 let currentFilter = 'waiting';
-let pendingUpdate = {}; // rowNum -> true (낙관적 업데이트 중 표시)
+let currentSizeFilter = 'all'; // 'all', 'small' (1-4), 'large' (5+)
+let pendingUpdate = {}; // rowNum -> true
 
 const $ = (id) => document.getElementById(id);
 
 window.onload = function () {
-  $('tab-waiting').innerText = '대기중';
   switchFilter('waiting');
+  switchSizeFilter('all');
   fetchWaitingList();
   setInterval(fetchWaitingList, CONFIG.REFRESH_INTERVAL);
 };
@@ -117,7 +129,7 @@ function fetchWaitingList() {
     .then(res => res.json())
     .then(data => {
       if (!data.success) throw new Error(data.message || '목록을 불러오지 못했습니다');
-      waitings = data.list || []; // Code.gs의 반환 키 'list'에 맞춤
+      waitings = data.list || [];
       $('sync-status').innerText = '실시간 수신 중';
       $('status-dot').className = 'w-2 h-2 rounded-full bg-soju';
       renderList();
@@ -130,7 +142,7 @@ function fetchWaitingList() {
 }
 
 /* =========================================================
-   필터 탭
+   필터 탭 처리 (상태 & 인원)
    ========================================================= */
 function switchFilter(filter) {
   currentFilter = filter;
@@ -149,28 +161,63 @@ function switchFilter(filter) {
   renderList();
 }
 
+function switchSizeFilter(size) {
+  currentSizeFilter = size;
+  const map = {
+    all: 'size-all',
+    small: 'size-small',
+    large: 'size-large',
+  };
+  Object.entries(map).forEach(([key, id]) => {
+    const btn = $(id);
+    const active = key === size;
+    btn.className = 'px-2.5 py-1 rounded-lg transition-colors ' +
+      (active ? 'bg-gold text-ink font-extrabold shadow-sm' : 'bg-nightlight/60 text-paper/70 hover:bg-nightlight');
+  });
+  renderList();
+}
+
 /* =========================================================
    목록 렌더링
    ========================================================= */
 function renderList() {
   const container = $('list-container');
 
-  // 접수된 순서 그대로 (rowNum 오름차순 = 먼저 접수한 사람이 위)
+  // 접수된 순서대로 정렬 (rowNum 오름차순)
   const sorted = [...waitings].sort((a, b) => a.rowNum - b.rowNum);
 
+  // 카운트 집계 (탭에 팀 수 표시용)
+  const waitingList = sorted.filter(w => w.status === CONFIG.STATUS.WAITING);
+  const waitingCount = waitingList.length;
+  const smallCount = waitingList.filter(w => Number(w.count || 0) <= 4).length;
+  const largeCount = waitingList.filter(w => Number(w.count || 0) >= 5).length;
+
+  $('tab-waiting').innerText = `대기중 (${waitingCount})`;
+  $('size-all').innerText = `전체 (${waitingCount})`;
+  $('size-small').innerText = `1~4인 (${smallCount})`;
+  $('size-large').innerText = `5인+ 단체 (${largeCount})`;
+
+  // 필터링 적용
   const filtered = sorted.filter(w => {
-    if (currentFilter === 'waiting') return w.status === CONFIG.STATUS.WAITING;
-    if (currentFilter === 'entered') return w.status === CONFIG.STATUS.ENTERED;
-    if (currentFilter === 'cancelled') return w.status === CONFIG.STATUS.CANCELLED;
-    return true; // all
+    // 1. 상태 필터
+    if (currentFilter === 'waiting' && w.status !== CONFIG.STATUS.WAITING) return false;
+    if (currentFilter === 'entered' && w.status !== CONFIG.STATUS.ENTERED) return false;
+    if (currentFilter === 'cancelled' && w.status !== CONFIG.STATUS.CANCELLED) return false;
+
+    // 2. 인원수 필터
+    const countNum = Number(w.count || 0);
+    if (currentSizeFilter === 'small' && countNum >= 5) return false;
+    if (currentSizeFilter === 'large' && countNum < 5) return false;
+
+    return true;
   });
 
   if (filtered.length === 0) {
-    container.innerHTML = `<p class="text-center text-ink/40 text-sm py-14">표시할 웨이팅이 없어요</p>`;
+    container.innerHTML = `<p class="text-center text-ink/40 text-sm py-14 font-medium">표시할 웨이팅이 없어요</p>`;
     return;
   }
 
-  // "대기중" 순번은 대기 상태인 사람들 사이에서만 매긴다
+  // 대기순번 매기기
   let waitingRank = 0;
   const waitingOrderMap = {};
   sorted.forEach(w => {
@@ -188,8 +235,14 @@ function renderList() {
     const isWaiting = w.status === CONFIG.STATUS.WAITING;
     const rank = waitingOrderMap[w.rowNum];
 
+    const countNum = Number(w.count || 0);
+    const isLargeGroup = countNum >= 5; // 5인 이상 단체 구분
+
     const card = document.createElement('div');
-    card.className = 'bg-white rounded-xl shadow-card p-3.5' + (isCancelled ? ' cancelled-card' : '');
+    // 단체팀일 경우 테두리와 배경에 은은한 국기색(flag) 포인트 적용
+    card.className = 'bg-white rounded-xl shadow-card p-3.5 border-2 transition-all ' +
+      (isLargeGroup && isWaiting ? 'border-flag/30 bg-flag/[0.02]' : 'border-transparent') +
+      (isCancelled ? ' cancelled-card' : '');
 
     const badgeClass = isWaiting
       ? 'bg-gold/15 text-gold'
@@ -198,32 +251,53 @@ function renderList() {
         : 'bg-ink/10 text-ink/50';
 
     const rankBadge = isWaiting
-      ? `<span class="font-display text-2xl text-flag mr-2">${rank}</span>`
-      : `<span class="font-display text-2xl text-ink/20 mr-2">–</span>`;
+      ? `<span class="font-display text-2xl text-flag mr-2.5 shrink-0">${rank}</span>`
+      : `<span class="font-display text-2xl text-ink/20 mr-2.5 shrink-0">–</span>`;
 
     const phoneDigits = String(w.phone || '').replace(/[^0-9]/g, '');
 
+    // 큰 인원수 배지 HTML
+    const countBadgeHtml = isLargeGroup
+      ? `<div class="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-flag text-paper rounded-xl shadow-sm">
+           <span class="text-xs">🚨</span>
+           <span class="font-display text-2xl leading-none">${escapeHtml(String(w.count || '0'))}</span>
+           <span class="text-xs font-bold">명</span>
+         </div>`
+      : `<div class="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-night/10 text-night rounded-xl">
+           <span class="text-xs">👥</span>
+           <span class="font-display text-2xl leading-none">${escapeHtml(String(w.count || '0'))}</span>
+           <span class="text-xs font-bold">명</span>
+         </div>`;
+
     card.innerHTML = `
-      <div class="flex items-start justify-between mb-2">
-        <div class="flex items-center min-w-0">
+      <div class="flex items-center justify-between gap-2 mb-2.5">
+        <!-- 대기순번 & 손님 정보 -->
+        <div class="flex items-center min-w-0 flex-1">
           ${rankBadge}
-          <div class="min-w-0">
-            <p class="font-bold text-base truncate ${isCancelled ? 'cancelled-name' : ''}">${escapeHtml(w.name || '이름없음')}</p>
-            <p class="text-[11px] text-ink/40">${escapeHtml(w.time || '')} 접수 · ${escapeHtml(String(w.count || '-'))}명</p>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5">
+              <p class="font-bold text-base truncate ${isCancelled ? 'cancelled-name' : ''}">${escapeHtml(w.name || '이름없음')}</p>
+              ${isLargeGroup ? '<span class="px-1.5 py-0.5 bg-flag/10 text-flag text-[10px] font-black rounded border border-flag/20 shrink-0">단체</span>' : ''}
+            </div>
+            <p class="text-[11px] text-ink/50">${escapeHtml(w.time || '')} 접수 · <span class="font-bold">${escapeHtml(w.status || '-')}</span></p>
           </div>
         </div>
-        <span class="shrink-0 text-xs font-bold px-2 py-1 rounded-full ${badgeClass}">${escapeHtml(w.status || '-')}</span>
+
+        <!-- 인원수 대형 배지 -->
+        ${countBadgeHtml}
       </div>
 
+      <!-- 전화 연결 및 복사 -->
       <div class="flex items-center gap-1.5 mb-2.5">
-        <a href="tel:${phoneDigits}" class="flex-1 bg-night text-paper text-sm font-bold py-2 rounded-lg text-center active:scale-[0.98] transition-transform">
-          📞 ${escapeHtml(w.phone || '번호없음')}
+        <a href="tel:${phoneDigits}" class="flex-1 bg-night text-paper text-sm font-bold py-2 rounded-lg text-center active:scale-[0.98] transition-transform flex items-center justify-center gap-1">
+          <span>📞</span> <span>${escapeHtml(w.phone || '번호없음')}</span>
         </a>
         <button class="shrink-0 border-2 border-ink/15 text-ink/60 text-xs font-bold px-3 py-2 rounded-lg active:scale-[0.98] transition-transform" onclick="copyPhone('${escapeAttr(w.phone || '')}')">
           복사
         </button>
       </div>
 
+      <!-- 상태 변경 버튼 3종 -->
       <div class="grid grid-cols-3 gap-1.5">
         ${statusButtonHtml(w, CONFIG.STATUS.WAITING, '대기', 'gold')}
         ${statusButtonHtml(w, CONFIG.STATUS.ENTERED, '입장', 'soju')}
@@ -259,7 +333,7 @@ function escapeAttr(str) {
 }
 
 /* =========================================================
-   상태 변경
+   상태 변경 (낙관적 업데이트)
    ========================================================= */
 function updateStatus(rowNum, status) {
   const target = waitings.find(w => w.rowNum === rowNum);
@@ -273,7 +347,7 @@ function updateStatus(rowNum, status) {
   fetch(CONFIG.SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'updateWaiting', rowNum, status }), // Code.gs 규격인 'updateWaiting'으로 변경
+    body: JSON.stringify({ action: 'updateWaiting', rowNum, status }),
   })
     .then(res => res.json())
     .then(data => {
@@ -282,7 +356,7 @@ function updateStatus(rowNum, status) {
     })
     .catch(err => {
       console.error('상태 변경 오류:', err);
-      target.status = prevStatus; // 실패 시 되돌리기
+      target.status = prevStatus;
       renderList();
       showToast('상태 변경에 실패했어요. 다시 시도해주세요');
     })
@@ -292,7 +366,7 @@ function updateStatus(rowNum, status) {
 }
 
 /* =========================================================
-   전화번호 복사
+   전화번호 복사 및 토스트
    ========================================================= */
 function copyPhone(phone) {
   const done = () => showToast('전화번호가 복사되었어요');
