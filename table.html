@@ -68,7 +68,7 @@
       border: 2px solid #333;
       border-radius: 10px;
       padding: 12px 10px;
-      min-height: 110px;
+      min-height: 125px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -81,14 +81,14 @@
       border-color: #3b82f6;
     }
 
-    /* 1시간 30분 경과 (주의 - 주황색) */
+    /* 경고 시간 경과 (주황색) */
     .table-card.warning-near {
       border-color: #f59e0b !important;
       background-color: #2a1f11 !important;
       box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
     }
 
-    /* 2시간 초과 (경고 - 빨간색 점멸) */
+    /* 이용시간 초과 (빨간색 점멸) */
     .table-card.warning-over {
       background-color: #3a0d10 !important;
       border-color: #ef4444 !important;
@@ -130,7 +130,7 @@
     }
 
     .elapsed-time {
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: bold;
       color: #38bdf8;
       margin-top: 2px;
@@ -139,22 +139,51 @@
     .elapsed-time.near { color: #f59e0b; }
     .elapsed-time.over { color: #ef4444; }
 
-    .btn-checkout {
+    .btn-group {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
       margin-top: 8px;
-      width: 100%;
+    }
+
+    .table-card.occupied .btn-group {
+      display: flex;
+    }
+
+    .btn-extend {
+      background-color: #10b981;
+      color: #fff;
+      border: none;
+      padding: 5px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .btn-extend.extended {
+      background-color: #059669;
+      opacity: 0.8;
+    }
+
+    .btn-checkout {
       background-color: #ef4444;
       color: #fff;
       border: none;
-      padding: 6px;
+      padding: 5px;
       border-radius: 6px;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       font-weight: bold;
       cursor: pointer;
-      display: none;
     }
 
-    .table-card.occupied .btn-checkout {
-      display: block;
+    .badge-extend {
+      background-color: #10b981;
+      color: #fff;
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: bold;
     }
 
     .badge-over {
@@ -164,9 +193,6 @@
       padding: 2px 6px;
       border-radius: 10px;
       font-weight: bold;
-      position: absolute;
-      top: 8px;
-      right: 8px;
       animation: blink-badge 1s infinite alternate;
     }
 
@@ -193,11 +219,13 @@
       GAS_URL: 'https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec', 
       TOTAL_TABLES: 35,
       REFRESH_INTERVAL: 5000,
-      LIMIT_MINUTES_NEAR: 90,  // 1시간 30분
-      LIMIT_MINUTES_OVER: 120  // 2시간
+      BASE_LIMIT_MINUTES: 120, // 기본 2시간 (120분)
+      EXTEND_MINUTES: 60,       // 메인메뉴 시키면 +1시간 (60분 연장)
+      
+      // 🌟 메인메뉴 판단 키워드 목록 (메뉴 이름에 아래 단어가 포함되면 자동 1시간 연장)
+      MAIN_MENU_KEYWORDS: ['탕', '전골', '볶음', '구이', '플래터', '치킨', '피자', '족발', '보쌈', '삼겹', '갈비', '찌개']
     };
 
-    // 로컬스토리지 활용: 페이지를 새로고침해도 입장시간 유지
     let tableSessions = JSON.parse(localStorage.getItem('qb_table_sessions') || '{}');
 
     window.onload = function() {
@@ -225,7 +253,10 @@
             <div class="table-status-text" id="status-text-${i}">빈 테이블</div>
             <div class="time-display" id="time-display-${i}"></div>
           </div>
-          <button class="btn-checkout" onclick="checkoutTable(${i})">👋 퇴장 / 초기화</button>
+          <div class="btn-group">
+            <button class="btn-extend" id="btn-extend-${i}" onclick="toggleExtendHours(${i})">⏱ +1시간 연장</button>
+            <button class="btn-checkout" onclick="checkoutTable(${i})">👋 퇴장 / 초기화</button>
+          </div>
         `;
         container.appendChild(card);
       }
@@ -247,7 +278,27 @@
         });
     }
 
-    // 주문이 감지되면 자동으로 최초 착석 시간 기록
+    function parseOrderTimeToDate(timeStr) {
+      const now = new Date();
+      if (!timeStr) return now;
+
+      const parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        const hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10);
+
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          const orderDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+          if (orderDate > now) {
+            orderDate.setDate(orderDate.getDate() - 1);
+          }
+          return orderDate;
+        }
+      }
+      return now;
+    }
+
+    // 주문 데이터를 확인하여 메인메뉴 유무 검사 및 최초 착석 등록
     function syncCheckinsWithOrders(orders) {
       let isUpdated = false;
 
@@ -256,13 +307,28 @@
         const tableNum = match ? parseInt(match[0], 10) : null;
 
         if (tableNum && tableNum >= 1 && tableNum <= CONFIG.TOTAL_TABLES) {
-          // 아직 세션이 없는 빈 테이블에 주문이 들어오면 최초 착석 처리!
+          const timeStr = order.time || '';
+          const calculatedCheckinDate = parseOrderTimeToDate(timeStr);
+
+          // 1. 최초 주문시 착석 처리
           if (!tableSessions[tableNum]) {
-            const now = new Date();
             tableSessions[tableNum] = {
-              checkinTime: now.toISOString(),
-              timeStr: order.time || `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+              checkinTime: calculatedCheckinDate.toISOString(),
+              timeStr: timeStr || `${String(calculatedCheckinDate.getHours()).padStart(2,'0')}:${String(calculatedCheckinDate.getMinutes()).padStart(2,'0')}`,
+              isExtended: false
             };
+            isUpdated = true;
+          }
+
+          // 2. 메인메뉴 주문 포함 여부 자동 체크하여 1시간 연장 적용
+          const items = order.items || [];
+          const hasMainMenu = items.some(item => {
+            const itemName = String(item.name || '');
+            return CONFIG.MAIN_MENU_KEYWORDS.some(keyword => itemName.includes(keyword));
+          });
+
+          if (hasMainMenu && !tableSessions[tableNum].isExtended) {
+            tableSessions[tableNum].isExtended = true;
             isUpdated = true;
           }
         }
@@ -282,6 +348,7 @@
         const statusText = document.getElementById(`status-text-${i}`);
         const timeDisplay = document.getElementById(`time-display-${i}`);
         const badgeBox = document.getElementById(`badge-box-${i}`);
+        const btnExtend = document.getElementById(`btn-extend-${i}`);
 
         const session = tableSessions[i];
 
@@ -293,7 +360,6 @@
           continue;
         }
 
-        // 착석 중인 테이블
         card.className = 'table-card occupied';
         statusText.innerText = '이용 중';
 
@@ -303,22 +369,51 @@
         const hours = Math.floor(diffMinutes / 60);
         const mins = diffMinutes % 60;
 
+        // 연장 여부에 따른 총 제한시간 설정 (기본 120분 / 연장시 180분)
+        const limitMinutes = session.isExtended 
+          ? (CONFIG.BASE_LIMIT_MINUTES + CONFIG.EXTEND_MINUTES) 
+          : CONFIG.BASE_LIMIT_MINUTES;
+
+        const warnNearMinutes = limitMinutes - 30; // 만료 30분 전 주황불
+
         let timeClass = '';
         badgeBox.innerHTML = '';
 
-        if (diffMinutes >= CONFIG.LIMIT_MINUTES_OVER) {
+        if (session.isExtended) {
+          badgeBox.innerHTML += '<span class="badge-extend">+1시간(3시간)</span> ';
+          if (btnExtend) {
+            btnExtend.innerText = '✓ 1시간 연장됨';
+            btnExtend.classList.add('extended');
+          }
+        } else if (btnExtend) {
+          btnExtend.innerText = '⏱ +1시간 연장';
+          btnExtend.classList.remove('extended');
+        }
+
+        if (diffMinutes >= limitMinutes) {
           card.classList.add('warning-over');
           timeClass = 'over';
-          badgeBox.innerHTML = '<span class="badge-over">🚨 2시간 초과</span>';
-        } else if (diffMinutes >= CONFIG.LIMIT_MINUTES_NEAR) {
+          badgeBox.innerHTML += '<span class="badge-over">🚨 시간초과</span>';
+        } else if (diffMinutes >= warnNearMinutes) {
           card.classList.add('warning-near');
           timeClass = 'near';
         }
 
+        const totalHoursLimit = Math.floor(limitMinutes / 60);
+
         timeDisplay.innerHTML = `
-          <div class="entry-time">입장: ${session.timeStr}</div>
+          <div class="entry-time">입장: ${session.timeStr} (최대 ${totalHoursLimit}시간)</div>
           <div class="elapsed-time ${timeClass}">⏱ ${hours > 0 ? hours + '시간 ' : ''}${mins}분 이용 중</div>
         `;
+      }
+    }
+
+    // 직원 수동 연장 토글 함수
+    function toggleExtendHours(tableNum) {
+      if (tableSessions[tableNum]) {
+        tableSessions[tableNum].isExtended = !tableSessions[tableNum].isExtended;
+        localStorage.setItem('qb_table_sessions', JSON.stringify(tableSessions));
+        updateTimersUI();
       }
     }
 
