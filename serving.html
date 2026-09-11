@@ -2,132 +2,58 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>무한해적상회 - 주방 KDS</title>
-
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>청춘주막 - 서빙 현황판</title>
   <style>
-    :root {
-      --bg-paper: #F5EFDD;
-      --text-ink: #26221C;
-      --flag-red: #C23B22;
-      --flag-dark: #9E2E19;
-      --accent-gold: #C89B3C;
-      --night-dark: #1F2A3C;
-      --night-card: #2B3A52;
-      --warn-orange: #D97706;
-      --status-green: #2563EB;
-    }
-
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: 'Noto Sans KR', sans-serif;
-      word-break: keep-all;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
     }
 
     body {
-      background-color: var(--bg-paper);
-      color: var(--text-ink);
-      padding: 16px;
+      background-color: #121212;
+      color: #ffffff;
+      padding: 15px;
       user-select: none;
-      min-height: 100vh;
     }
 
     .header {
-      position: relative;
-      background-color: var(--flag-red);
-      color: #F5EFDD;
-      padding: 16px 20px 22px 20px;
-      margin-bottom: 20px;
-      border-radius: 12px 12px 0 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      box-shadow: 0 4px 12px rgba(38,34,28,0.15);
-    }
-
-    .header::after {
-      content: '';
-      position: absolute;
-      left: 0; right: 0; bottom: -8px;
-      height: 10px;
-      background: linear-gradient(-45deg, transparent 5px, var(--flag-red) 5px), 
-                  linear-gradient(45deg, transparent 5px, var(--flag-red) 5px);
-      background-size: 12px 12px;
-      background-repeat: repeat-x;
-    }
-
-    .header-title-group {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .header-sub {
-      font-size: 0.7rem;
-      letter-spacing: 1px;
-      opacity: 0.8;
-      margin-bottom: 2px;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #333;
     }
 
     .header h1 {
-      font-family: 'Black Han Sans', sans-serif;
-      font-size: 1.5rem;
-      letter-spacing: 0.5px;
-      color: #FFF;
-    }
-
-    .header-controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .btn-filter-warning {
-      background-color: rgba(255, 255, 255, 0.15);
-      color: #FFF;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 0.8rem;
+      font-size: 1.4rem;
       font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-filter-warning.active {
-      background-color: var(--night-dark);
-      color: var(--accent-gold);
-      border-color: var(--accent-gold);
+      color: #2ec4b6;
     }
 
     .status {
-      font-size: 0.8rem;
-      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.85rem;
+      color: #888;
       display: flex;
       align-items: center;
       gap: 6px;
-      font-weight: 500;
     }
 
     .status-dot {
       width: 8px;
       height: 8px;
-      background-color: #34D399;
+      background-color: #2ec4b6;
       border-radius: 50%;
       display: inline-block;
-      box-shadow: 0 0 6px #34D399;
     }
 
     .grid-container {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 12px;
+      gap: 10px;
     }
 
     @media (max-width: 600px) {
@@ -138,9 +64,9 @@
     }
 
     .table-card {
-      background-color: #FFFFFF;
-      border: 1.5px solid rgba(38,34,28,0.12);
-      border-radius: 12px;
+      background-color: #1e1e1e;
+      border: 2px solid #333;
+      border-radius: 10px;
       padding: 10px 8px;
       min-height: 105px;
       display: flex;
@@ -149,30 +75,12 @@
       cursor: pointer;
       transition: all 0.2s ease;
       position: relative;
-      box-shadow: 0 2px 8px rgba(38,34,28,0.06);
     }
 
     .table-card.active {
-      background-color: #FFFDF7;
-      border: 2px solid var(--flag-red);
-      box-shadow: 0 4px 14px rgba(194,59,34,0.18);
-    }
-
-    .table-card.warning-near {
-      border: 2px solid var(--warn-orange) !important;
-      background-color: #FFFDF5 !important;
-      box-shadow: 0 0 10px rgba(217, 119, 6, 0.25);
-    }
-
-    .table-card.warning-over {
-      background-color: #FFF5F5 !important;
-      border: 2px solid var(--flag-red) !important;
-      animation: blink-border 1.2s infinite alternate;
-    }
-
-    @keyframes blink-border {
-      0% { box-shadow: 0 0 4px var(--flag-red); border-color: var(--flag-red); }
-      100% { box-shadow: 0 0 16px var(--flag-red); border-color: #E53E3E; }
+      background-color: #132a28;
+      border-color: #2ec4b6;
+      box-shadow: 0 0 10px rgba(46, 196, 182, 0.3);
     }
 
     .table-header {
@@ -182,37 +90,20 @@
     }
 
     .table-num {
-      font-family: 'Black Han Sans', sans-serif;
-      font-size: 1.15rem;
-      color: var(--text-ink);
-      opacity: 0.4;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #ddd;
     }
 
     .table-card.active .table-num {
-      color: var(--flag-red);
-      opacity: 1;
+      color: #2ec4b6;
     }
-
-    .table-time {
-      font-size: 0.7rem;
-      color: #718096;
-      text-align: right;
-    }
-
-    .elapsed-time {
-      display: block;
-      font-weight: 700;
-      font-size: 0.75rem;
-      margin-top: 1px;
-    }
-    .elapsed-time.over { color: var(--flag-red); }
-    .elapsed-time.near { color: var(--warn-orange); }
 
     .table-summary {
       font-size: 0.8rem;
-      color: #A0AEC0;
+      color: #bbb;
       margin-top: 4px;
-      line-height: 1.25;
+      line-height: 1.2;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -221,47 +112,33 @@
     }
 
     .table-card.active .table-summary {
-      color: var(--text-ink);
-      font-weight: 700;
+      color: #ffffff;
+      font-weight: 600;
     }
 
     .badge-group {
       display: flex;
       gap: 4px;
       align-items: center;
-      margin-top: 6px;
+      margin-top: 4px;
     }
 
     .item-count-badge {
-      background-color: var(--flag-red);
-      color: #FFF;
-      font-size: 0.68rem;
+      background-color: #2ec4b6;
+      color: #121212;
+      font-size: 0.7rem;
       padding: 2px 6px;
-      border-radius: 6px;
-      font-weight: 700;
-    }
-
-    .over-time-badge {
-      background-color: var(--flag-dark);
-      color: #FFF;
-      font-size: 0.65rem;
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-weight: 700;
-      animation: blink-text 1s infinite alternate;
-    }
-
-    @keyframes blink-text {
-      0% { opacity: 0.6; }
-      100% { opacity: 1; }
+      border-radius: 12px;
+      font-weight: bold;
     }
 
     .modal-overlay {
       position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background-color: rgba(31, 42, 60, 0.65);
-      backdrop-filter: blur(2px);
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.75);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -277,47 +154,44 @@
     }
 
     .modal-content {
-      background-color: #FFFFFF;
-      border-radius: 16px;
+      background-color: #242424;
+      border-radius: 14px;
       width: 90%;
-      max-width: 460px;
+      max-width: 440px;
       max-height: 80vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      box-shadow: 0 12px 32px rgba(38,34,28,0.25);
-      border: 1px solid rgba(38,34,28,0.1);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      border: 1px solid #444;
     }
 
     .modal-header {
-      background-color: var(--flag-red);
-      padding: 16px 20px;
+      background-color: #005f73;
+      padding: 14px 18px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      color: #FFF;
+      color: #fff;
     }
 
     .modal-title {
-      font-family: 'Black Han Sans', sans-serif;
-      font-size: 1.25rem;
-      letter-spacing: 0.5px;
+      font-size: 1.1rem;
+      font-weight: bold;
     }
 
     .btn-close {
       background: none;
       border: none;
-      color: #FFF;
-      font-size: 1.5rem;
+      color: #fff;
+      font-size: 1.4rem;
       cursor: pointer;
-      line-height: 1;
     }
 
     .modal-body {
-      padding: 18px;
+      padding: 16px;
       overflow-y: auto;
       flex: 1;
-      background-color: #FAF6ED;
     }
 
     .item-list {
@@ -328,14 +202,12 @@
     }
 
     .item-card {
-      background-color: #FFFFFF;
+      background-color: #333;
       padding: 12px 14px;
-      border-radius: 10px;
+      border-radius: 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border: 1px solid rgba(38,34,28,0.08);
-      box-shadow: 0 2px 4px rgba(38,34,28,0.03);
     }
 
     .item-info {
@@ -346,116 +218,56 @@
 
     .item-name {
       font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--text-ink);
+      font-weight: 600;
+      color: #fff;
     }
 
     .item-qty {
-      background-color: var(--bg-paper);
-      color: var(--flag-red);
-      font-family: 'Black Han Sans', sans-serif;
+      background-color: #f1f2f6;
+      color: #2f3542;
       padding: 2px 8px;
       border-radius: 6px;
       font-size: 0.85rem;
-    }
-
-    .action-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .qty-control {
-      display: flex;
-      align-items: center;
-      background-color: #F1F5F9;
-      border-radius: 6px;
-      padding: 2px;
-      border: 1px solid #CBD5E1;
-    }
-
-    .btn-qty {
-      background-color: #FFFFFF;
-      border: 1px solid #CBD5E1;
-      color: var(--text-ink);
       font-weight: bold;
-      width: 24px;
-      height: 24px;
-      border-radius: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.8rem;
-    }
-
-    .btn-qty:active {
-      background-color: #E2E8F0;
-    }
-
-    .qty-select-val {
-      font-size: 0.85rem;
-      font-weight: 700;
-      padding: 0 8px;
-      color: var(--text-ink);
     }
 
     .modal-footer {
       padding: 14px 16px;
-      background-color: #FFFFFF;
-      border-top: 1px solid rgba(38,34,28,0.08);
+      background-color: #1c1c1c;
+      border-top: 1px solid #333;
     }
 
     .btn-all-complete {
       width: 100%;
-      background-color: var(--flag-red);
-      color: #FFF;
+      background-color: #2563eb;
+      color: #fff;
       border: none;
-      padding: 13px;
-      border-radius: 10px;
-      font-family: 'Black Han Sans', sans-serif;
-      font-size: 1.05rem;
-      letter-spacing: 0.5px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
       cursor: pointer;
-      box-shadow: 0 2px 6px rgba(194,59,34,0.25);
-      transition: background-color 0.2s;
-    }
-
-    .btn-all-complete:hover {
-      background-color: var(--flag-dark);
     }
 
     .btn-complete {
-      background-color: var(--night-dark);
-      color: var(--accent-gold);
+      background-color: #2ec4b6;
+      color: #121212;
       border: none;
-      padding: 8px 12px;
-      border-radius: 8px;
+      padding: 8px 14px;
+      border-radius: 6px;
       font-size: 0.85rem;
-      font-weight: 700;
+      font-weight: bold;
       cursor: pointer;
-      transition: background-color 0.2s;
-      white-space: nowrap;
-    }
-
-    .btn-complete:hover {
-      background-color: #2E3E56;
     }
   </style>
 </head>
 <body>
 
   <div class="header">
-    <div class="header-title-group">
-      <span class="header-sub">2026 7단대 연합축제 · Master7iece</span>
-      <h1>☠️ 무한해적상회 주방 KDS</h1>
-    </div>
-    <div class="header-controls">
-      <button class="btn-filter-warning" id="btn-filter" onclick="toggleOverTimeFilter()">⚠️ 1시간 초과만 보기</button>
-      <div class="status">
-        <span class="status-dot"></span>
-        <span id="sync-status">연결 중...</span>
-      </div>
+    <h1>🔔 서빙 현황판 (Serving)</h1>
+    <div class="status">
+      <span class="status-dot"></span>
+      <span id="sync-status">연결 중...</span>
     </div>
   </div>
 
@@ -468,11 +280,10 @@
         <button class="btn-close" onclick="closeModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <div id="modal-time-info" style="font-size:0.85rem; color:var(--warn-orange); margin-bottom:12px; font-weight:700;"></div>
         <ul class="item-list" id="modal-item-list"></ul>
       </div>
       <div class="modal-footer">
-        <button class="btn-all-complete" onclick="completeAllTableItems()">테이블 전체 완료</button>
+        <button class="btn-all-complete" onclick="completeAllTableItems()">테이블 전체 서빙 완료</button>
       </div>
     </div>
   </div>
@@ -481,21 +292,16 @@
     const CONFIG = {
       GAS_URL: 'https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec', 
       TOTAL_TABLES: 35,
-      REFRESH_INTERVAL: 4000,
-      WARN_MINUTES_NEAR: 30,
-      WARN_MINUTES_OVER: 60
+      REFRESH_INTERVAL: 4000
     };
 
     let currentActiveOrders = {};
     let selectedTableNum = null;
-    let isFilterOverTime = false;
-    let selectedQtyMap = {};
 
     window.onload = function() {
       renderTableGrid();
-      fetchKitchenOrders();
-      setInterval(fetchKitchenOrders, CONFIG.REFRESH_INTERVAL);
-      setInterval(updateTimesUI, 10000);
+      fetchServingOrders();
+      setInterval(fetchServingOrders, CONFIG.REFRESH_INTERVAL);
     };
 
     function renderTableGrid() {
@@ -511,7 +317,6 @@
         card.innerHTML = `
           <div class="table-header">
             <span class="table-num">${i}</span>
-            <div class="table-time" id="table-time-${i}"></div>
           </div>
           <div class="table-summary" id="table-summary-${i}">빈 테이블</div>
           <div class="badge-group" id="table-badge-${i}"></div>
@@ -520,8 +325,8 @@
       }
     }
 
-    function fetchKitchenOrders() {
-      fetch(`${CONFIG.GAS_URL}?action=kitchen`)
+    function fetchServingOrders() {
+      fetch(`${CONFIG.GAS_URL}?action=serving&_=${new Date().getTime()}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.orders) {
@@ -535,19 +340,8 @@
         });
     }
 
-    function parseOrderDate(timeStr) {
-      if (!timeStr) return new Date();
-      const now = new Date();
-      const parts = timeStr.split(':');
-      if (parts.length >= 2) {
-        now.setHours(parseInt(parts[0], 10));
-        now.setMinutes(parseInt(parts[1], 10));
-        now.setSeconds(0);
-      }
-      return now;
-    }
-
     function processOrders(orders) {
+      // 프론트엔드 자체 저장 상태 없이, 매 수신마다 객체를 초기화하여 시트 상태만 100% 반영
       currentActiveOrders = {}; 
 
       for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
@@ -555,7 +349,6 @@
         if (box) {
           box.className = 'table-card';
           document.getElementById(`table-summary-${i}`).innerText = '빈 테이블';
-          document.getElementById(`table-time-${i}`).innerText = '';
           document.getElementById(`table-badge-${i}`).innerHTML = '';
         }
       }
@@ -576,8 +369,6 @@
           if (!currentActiveOrders[tableNum]) {
             currentActiveOrders[tableNum] = {
               table: tableNum,
-              firstTimeStr: order.time,
-              firstTimeObj: parseOrderDate(order.time),
               orderNumbers: [order.orderNumber],
               items: []
             };
@@ -593,27 +384,23 @@
 
             if (existingItem) {
               existingItem.qty += qty;
-              existingItem.sources.push({
-                rowNum: newItem.rowNum,
-                orderId: order.orderNumber,
-                qty: qty
-              });
+              existingItem.rowNums.push(newItem.rowNum);
+              if (!existingItem.orderIds.includes(order.orderNumber)) {
+                existingItem.orderIds.push(order.orderNumber);
+              }
             } else {
               currentActiveOrders[tableNum].items.push({
                 name: newItem.name,
                 qty: qty,
-                sources: [{
-                  rowNum: newItem.rowNum,
-                  orderId: order.orderNumber,
-                  qty: qty
-                }]
+                rowNums: [newItem.rowNum],
+                orderIds: [order.orderNumber]
               });
             }
           });
         }
       });
 
-      updateTimesUI();
+      updateUI();
 
       if (selectedTableNum) {
         if (currentActiveOrders[selectedTableNum]) {
@@ -624,44 +411,16 @@
       }
     }
 
-    function updateTimesUI() {
-      const now = new Date();
-
+    function updateUI() {
       for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
         const box = document.getElementById(`table-box-${i}`);
         const tableData = currentActiveOrders[i];
 
         if (!tableData || !tableData.items || tableData.items.length === 0) {
-          if (box) box.style.display = isFilterOverTime ? 'none' : 'flex';
           continue;
         }
 
-        const diffMs = now - tableData.firstTimeObj;
-        const diffMinutes = Math.floor(diffMs / (1000 * 60));
-        const hours = Math.floor(diffMinutes / 60);
-        const mins = diffMinutes % 60;
-        const formattedElapsed = `${hours > 0 ? hours + '시간 ' : ''}${mins}분 경과`;
-
         box.classList.add('active');
-        box.classList.remove('warning-near', 'warning-over');
-
-        let isOver = false;
-        let elapsedClass = '';
-
-        if (diffMinutes >= CONFIG.WARN_MINUTES_OVER) {
-          box.classList.add('warning-over');
-          elapsedClass = 'over';
-          isOver = true;
-        } else if (diffMinutes >= CONFIG.WARN_MINUTES_NEAR) {
-          box.classList.add('warning-near');
-          elapsedClass = 'near';
-        }
-
-        if (isFilterOverTime && !isOver) {
-          box.style.display = 'none';
-        } else {
-          box.style.display = 'flex';
-        }
 
         const firstItem = tableData.items[0].name;
         const totalQty = tableData.items.reduce((sum, item) => sum + item.qty, 0);
@@ -670,25 +429,8 @@
           : `${firstItem} ${tableData.items[0].qty}개`;
 
         document.getElementById(`table-summary-${i}`).innerText = summaryText;
-        document.getElementById(`table-time-${i}`).innerHTML = `
-          <span>주문: ${tableData.firstTimeStr}</span>
-          <span class="elapsed-time ${elapsedClass}">⏱ ${formattedElapsed}</span>
-        `;
-
-        let badgeHtml = `<span class="item-count-badge">${totalQty}개 메뉴</span>`;
-        if (isOver) {
-          badgeHtml += `<span class="over-time-badge">🚨 1시간 지연</span>`;
-        }
-        document.getElementById(`table-badge-${i}`).innerHTML = badgeHtml;
+        document.getElementById(`table-badge-${i}`).innerHTML = `<span class="item-count-badge">${totalQty}개 메뉴</span>`;
       }
-    }
-
-    function toggleOverTimeFilter() {
-      isFilterOverTime = !isFilterOverTime;
-      const btn = document.getElementById('btn-filter');
-      btn.classList.toggle('active', isFilterOverTime);
-      btn.innerText = isFilterOverTime ? '📋 전체 보기' : '⚠️ 1시간 지연만 보기';
-      updateTimesUI();
     }
 
     function openModal(tableNum) {
@@ -696,115 +438,57 @@
       if (!tableData || !tableData.items || tableData.items.length === 0) return;
 
       selectedTableNum = tableNum;
-      selectedQtyMap = {};
       renderModalContent(tableData);
       document.getElementById('modal-overlay').classList.add('open');
     }
 
     function closeModal() {
       selectedTableNum = null;
-      selectedQtyMap = {};
       document.getElementById('modal-overlay').classList.remove('open');
     }
 
     function renderModalContent(tableData) {
-      const now = new Date();
-      const diffMs = now - tableData.firstTimeObj;
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
       document.getElementById('modal-title').innerText = `테이블 ${tableData.table}`;
-      document.getElementById('modal-time-info').innerText = `최초 주문: ${tableData.firstTimeStr} (조리 지연: ${diffMinutes}분 경과)`;
 
       const modalItemList = document.getElementById('modal-item-list');
       modalItemList.innerHTML = '';
 
-      tableData.items.forEach((item, index) => {
+      tableData.items.forEach(item => {
         const li = document.createElement('li');
         li.className = 'item-card';
         
-        if (!selectedQtyMap[index]) {
-          selectedQtyMap[index] = item.qty; 
-        }
-
-        const isMulti = item.qty > 1;
-
-        let actionHtml = '';
-        if (isMulti) {
-          actionHtml = `
-            <div class="action-group">
-              <div class="qty-control">
-                <button class="btn-qty" onclick="changePartialQty(${index}, -1, ${item.qty})">-</button>
-                <span class="qty-select-val" id="qty-val-${index}">${selectedQtyMap[index]}</span>
-                <button class="btn-qty" onclick="changePartialQty(${index}, 1, ${item.qty})">+</button>
-              </div>
-              <button class="btn-complete" onclick="completePartialItem(${index})">
-                ✔ 주문완료
-              </button>
-            </div>
-          `;
-        } else {
-          actionHtml = `
-            <button class="btn-complete" onclick="completePartialItem(${index})">
-              ✔ 주문완료
-            </button>
-          `;
-        }
+        const rowNumsJson = JSON.stringify(item.rowNums);
+        const orderIdsJson = JSON.stringify(item.orderIds);
 
         li.innerHTML = `
           <div class="item-info">
             <span class="item-name">${item.name}</span>
             <span class="item-qty">${item.qty}개</span>
           </div>
-          ${actionHtml}
+          <button class="btn-complete" onclick='completeMergedItem(${rowNumsJson}, ${orderIdsJson})'>
+            ✔ 서빙완료
+          </button>
         `;
         modalItemList.appendChild(li);
       });
     }
 
-    function changePartialQty(itemIdx, delta, maxQty) {
-      let currentVal = selectedQtyMap[itemIdx] || maxQty;
-      currentVal += delta;
-      if (currentVal < 1) currentVal = 1;
-      if (currentVal > maxQty) currentVal = maxQty;
-      
-      selectedQtyMap[itemIdx] = currentVal;
-      const valElem = document.getElementById(`qty-val-${itemIdx}`);
-      if (valElem) valElem.innerText = currentVal;
-    }
-
-    function completePartialItem(itemIdx) {
-      if (!selectedTableNum || !currentActiveOrders[selectedTableNum]) return;
-
-      const item = currentActiveOrders[selectedTableNum].items[itemIdx];
-      if (!item) return;
-
-      let remainingToComplete = selectedQtyMap[itemIdx] || item.qty;
-      const promises = [];
-
-      for (const src of item.sources) {
-        if (remainingToComplete <= 0) break;
-
-        const completeAmount = Math.min(remainingToComplete, src.qty);
-        remainingToComplete -= completeAmount;
-
-        promises.push(
-          fetch(CONFIG.GAS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({
-              action: 'completeItem',
-              rowNum: src.rowNum,
-              orderId: src.orderId,
-              completeQty: completeAmount
-            })
+    function completeMergedItem(rowNums, orderIds) {
+      const promises = rowNums.map((rowNum, idx) => {
+        return fetch(CONFIG.GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            action: 'completeItem',
+            rowNum: rowNum,
+            orderId: orderIds[idx] || orderIds[0]
           })
-        );
-      }
+        });
+      });
 
       Promise.all(promises).then(() => {
-        delete selectedQtyMap[itemIdx];
-        fetchKitchenOrders();
-      }).catch(err => console.error("주문완료 오류:", err));
+        fetchServingOrders();
+      }).catch(err => console.error("서빙완료 처리 오류:", err));
     }
 
     function completeAllTableItems() {
@@ -817,7 +501,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
-            action: 'completeCooking',
+            action: 'completeServing',
             orderNumber: orderNum
           })
         });
@@ -825,7 +509,7 @@
 
       Promise.all(promises).then(() => {
         closeModal();
-        fetchKitchenOrders();
+        fetchServingOrders();
       }).catch(err => console.error("전체 완료 오류:", err));
     }
   </script>
