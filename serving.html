@@ -126,7 +126,7 @@
 
 <script>
 /* =========================================================
-   설정값 — 기존 백엔드 Apps Script URL
+   설정값 — 백엔드 URL
    ========================================================= */
 const CONFIG = {
   SCRIPT_URL: "https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec",
@@ -179,11 +179,9 @@ async function init() {
 
 async function fetchOrders() {
   try {
-    // 파라미터 없는 순수 GET 호출
     const res = await fetch(CONFIG.SCRIPT_URL);
     const rawData = await res.json();
     
-    // 데이터 형식이 배열, { orders: [...] }, { data: [...] } 중 어떤 방식이든 수용
     let newOrders = [];
     if (Array.isArray(rawData)) {
       newOrders = rawData;
@@ -193,11 +191,10 @@ async function fetchOrders() {
       newOrders = rawData.data;
     }
 
-    // 신규 주문 알림
     if (!state.isFirstLoad) {
       const hasNew = newOrders.some(o => {
         const id = getOrderId(o);
-        const status = mapStatusKey(o.status || o.state);
+        const status = mapStatusKey(getRawStatus(o));
         return !state.knownOrderIds.has(id) && status === 'ORDERED';
       });
       if (hasNew) {
@@ -217,9 +214,12 @@ async function fetchOrders() {
   }
 }
 
-/* 주문 ID 추출 */
 function getOrderId(order) {
   return String(order.orderNumber || order.id || order.no || order.orderId || '');
+}
+
+function getRawStatus(order) {
+  return order.status || order.state || order.condition || order['상태'] || '';
 }
 
 /* =========================================================
@@ -231,10 +231,10 @@ function renderOrders() {
 
   let filtered = state.orders;
   if (state.currentFilter !== 'ALL') {
-    filtered = state.orders.filter(o => mapStatusKey(o.status || o.state) === state.currentFilter);
+    filtered = state.orders.filter(o => mapStatusKey(getRawStatus(o)) === state.currentFilter);
   }
 
-  const pendingCount = state.orders.filter(o => mapStatusKey(o.status || o.state) === 'ORDERED').length;
+  const pendingCount = state.orders.filter(o => mapStatusKey(getRawStatus(o)) === 'ORDERED').length;
   $('count-pending').textContent = pendingCount;
   $('count-total').textContent = state.orders.length;
 
@@ -248,7 +248,7 @@ function renderOrders() {
 
   filtered.forEach(order => {
     const orderId = getOrderId(order);
-    const statusKey = mapStatusKey(order.status || order.state);
+    const statusKey = mapStatusKey(getRawStatus(order));
     const tableNum = order.table || order.tableNo || order.tableNumber || '-';
     const totalAmt = order.totalAmount || order.totalPrice || order.total || 0;
     const timeStr = formatTime(order.createdAt || order.time || order.timestamp);
@@ -325,37 +325,45 @@ function renderOrders() {
   });
 }
 
+/* 시트의 다양한 상태값을 흡수하는 맵핑 함수 */
 function mapStatusKey(status) {
   if (!status) return 'ORDERED';
   const s = String(status).trim();
-  if (s === 'ORDERED' || s === '주문접수' || s === '접수') return 'ORDERED';
-  if (s === 'COOKED' || s === '조리완료' || s === '출고' || s === '완료') return 'COOKED';
-  if (s === 'SERVED' || s === '서빙완료' || s === '서빙') return 'SERVED';
+  
+  // 시트에서 '확인', '접수', '주문', 'ORDERED' 등으로 기재되어 있으면 주문접수 상태로 지정
+  if (['ORDERED', '주문접수', '접수', '확인', '주문', '신규'].includes(s)) return 'ORDERED';
+  
+  // '조리완료', '출고', '완료', 'COOKED'는 조리완료 상태로 지정
+  if (['COOKED', '조리완료', '출고', '완료', '조리중'].includes(s)) return 'COOKED';
+  
+  // '서빙완료', '서빙', 'SERVED'는 서빙완료 상태로 지정
+  if (['SERVED', '서빙완료', '서빙', '전달'].includes(s)) return 'SERVED';
+  
   return 'ORDERED';
 }
 
 function renderActionButtons(orderId, statusKey) {
   if (statusKey === 'ORDERED') {
     return `
-      <button onclick="updateOrderStatus('${orderId}', 'COOKED')" 
+      <button onclick="updateOrderStatus('${orderId}', '조리완료')" 
         class="col-span-2 bg-flag text-paper font-display text-sm py-2.5 rounded-lg shadow-sm hover:bg-flagdark active:scale-[0.98] transition-all">
         🍳 조리완료 처리
       </button>
     `;
   } else if (statusKey === 'COOKED') {
     return `
-      <button onclick="updateOrderStatus('${orderId}', 'ORDERED')" 
+      <button onclick="updateOrderStatus('${orderId}', '확인')" 
         class="bg-ink/10 text-ink/70 font-bold text-xs py-2 rounded-lg hover:bg-ink/20">
         ↩️ 접수로 되돌리기
       </button>
-      <button onclick="updateOrderStatus('${orderId}', 'SERVED')" 
+      <button onclick="updateOrderStatus('${orderId}', '서빙완료')" 
         class="bg-soju text-paper font-display text-sm py-2 rounded-lg shadow-sm active:scale-[0.98] transition-all">
         🍺 서빙완료
       </button>
     `;
   } else {
     return `
-      <button onclick="updateOrderStatus('${orderId}', 'COOKED')" 
+      <button onclick="updateOrderStatus('${orderId}', '조리완료')" 
         class="col-span-2 bg-ink/10 text-ink/60 font-bold text-xs py-2 rounded-lg hover:bg-ink/20">
         ↩️ 조리완료로 되돌리기
       </button>
@@ -372,6 +380,7 @@ async function updateOrderStatus(orderId, nextStatus) {
     if (target) {
       if (target.status !== undefined) target.status = nextStatus;
       if (target.state !== undefined) target.state = nextStatus;
+      if (target['상태'] !== undefined) target['상태'] = nextStatus;
       renderOrders();
     }
 
