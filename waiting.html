@@ -10,7 +10,7 @@
   tailwind.config = {
     theme: {
       extend: {
-        colors: { paper: '#F5EFDD', ink: '#26221C', flag: '#C23B22', night: '#1F2A3C', gold: '#C89B3C' },
+        colors: { paper: '#F5EFDD', ink: '#26221C', flag: '#C23B22', night: '#1F2A3C', gold: '#C89B3C', soju: '#4C7A5A' },
         fontFamily: { display: ['"Black Han Sans"', 'sans-serif'], body: ['"Noto Sans KR"', 'sans-serif'] }
       }
     }
@@ -21,28 +21,67 @@
 
 <div class="w-full max-w-md bg-white rounded-2xl shadow-lg p-6">
   <h1 class="font-display text-2xl text-center text-flag mb-1">☠️ 무한해적상회 대기 등록</h1>
-  <p class="text-xs text-center text-ink/60 mb-6">성함과 연락처를 남겨주시면 순서대로 안내해 드립니다.</p>
+  <p class="text-xs text-center text-ink/60 mb-5">성함과 연락처를 남겨주시면 순서대로 안내해 드립니다.</p>
+
+  <!-- 실시간 대기 현황 전광판 -->
+  <div class="bg-night text-paper rounded-xl p-4 mb-5 shadow-sm">
+    <div class="flex items-center justify-between border-b border-paper/10 pb-2.5 mb-2.5">
+      <div>
+        <p class="text-[11px] text-paper/70 font-medium">현재 전체 대기</p>
+        <p class="font-display text-2xl text-gold" id="total-waiting-count">조회 중...</p>
+      </div>
+      <button type="button" onclick="fetchWaitingCount()" class="text-[11px] bg-paper/10 hover:bg-paper/20 text-paper/80 px-2.5 py-1 rounded-lg border border-paper/20 active:scale-95 transition-transform">
+        🔄 새로고침
+      </button>
+    </div>
+    <div class="grid grid-cols-2 gap-2 text-xs">
+      <div class="bg-nightlight/50 rounded-lg p-2 text-center border border-paper/10">
+        <span class="text-paper/70 block text-[10px]">1~4인 (소형)</span>
+        <span class="font-bold text-sm text-white" id="small-waiting-count">-</span><span class="text-xs text-paper/70"> 팀</span>
+      </div>
+      <div class="bg-nightlight/50 rounded-lg p-2 text-center border border-paper/10">
+        <span class="text-paper/70 block text-[10px]">5인 이상 (단체)</span>
+        <span class="font-bold text-sm text-white" id="large-waiting-count">-</span><span class="text-xs text-paper/70"> 팀</span>
+      </div>
+    </div>
+  </div>
 
   <form id="waiting-form" onsubmit="registerWaiting(event)" class="space-y-4">
     <div>
       <label class="block text-xs font-bold mb-1">대표자 성함</label>
       <input type="text" id="cust-name" required placeholder="홍길동" class="w-full border-2 border-ink/15 rounded-xl p-3 text-sm focus:outline-none focus:border-flag">
     </div>
+
     <div>
       <label class="block text-xs font-bold mb-1">전화번호</label>
-      <input type="tel" id="cust-phone" required placeholder="1234-5678" class="w-full border-2 border-ink/15 rounded-xl p-3 text-sm focus:outline-none focus:border-flag">
-    </div>
-    <div>
-      <label class="block text-xs font-bold mb-1">방문 인원수</label>
-      <input type="number" id="cust-count" min="1" value="2" required class="w-full border-2 border-ink/15 rounded-xl p-3 text-sm focus:outline-none focus:border-flag">
+      <input type="tel" id="cust-phone" required placeholder="010-1234-5678" class="w-full border-2 border-ink/15 rounded-xl p-3 text-sm focus:outline-none focus:border-flag">
     </div>
 
-    <button type="submit" id="btn-submit" class="w-full bg-flag text-paper font-display text-lg py-3 rounded-xl shadow active:scale-95 transition-transform">
+    <div>
+      <label class="block text-xs font-bold mb-1">방문 인원 구분 및 상세 인원</label>
+      <!-- 인원 구분 원터치 버튼 -->
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <button type="button" id="btn-group-small" onclick="selectGroupType('small')" class="py-2.5 px-3 rounded-xl border-2 text-xs font-bold transition-all bg-flag text-paper border-flag">
+          1~4인 (소형)
+        </button>
+        <button type="button" id="btn-group-large" onclick="selectGroupType('large')" class="py-2.5 px-3 rounded-xl border-2 text-xs font-bold transition-all bg-white text-ink/60 border-ink/15">
+          5인 이상 (단체)
+        </button>
+      </div>
+
+      <!-- 정확한 인원수 입력 -->
+      <div class="relative">
+        <input type="number" id="cust-count" min="1" value="2" required oninput="validateGroupType()" class="w-full border-2 border-ink/15 rounded-xl p-3 text-sm focus:outline-none focus:border-flag pr-10">
+        <span class="absolute right-3 top-3.5 text-xs font-bold text-ink/40">명</span>
+      </div>
+    </div>
+
+    <button type="submit" id="btn-submit" class="w-full bg-flag text-paper font-display text-lg py-3.5 rounded-xl shadow active:scale-95 transition-transform mt-2">
       대기표 뽑기
     </button>
   </form>
 
-  <!-- 접수 완료 안내 카드 (대기 번호 출력 제거) -->
+  <!-- 접수 완료 안내 카드 -->
   <div id="result-card" class="hidden mt-6 text-center border-2 border-flag/30 bg-paper p-4 rounded-xl">
     <p class="text-sm font-bold text-ink/80 mb-1">대기 접수가 완료되었습니다! 🎉</p>
     <p class="text-xs text-ink/60">순서가 되면 전화로 안내해 드리겠습니다 🍻</p>
@@ -52,6 +91,69 @@
 <script>
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec"; 
 
+  window.onload = function() {
+    fetchWaitingCount();
+  };
+
+  /* 실시간 대기팀 수 조회 (전체 / 1~4인 / 5인 이상) */
+  async function fetchWaitingCount() {
+    const totalEl = document.getElementById('total-waiting-count');
+    const smallEl = document.getElementById('small-waiting-count');
+    const largeEl = document.getElementById('large-waiting-count');
+
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=waitingList`);
+      const data = await res.json();
+
+      if (data.success && data.list) {
+        // '대기' 상태인 팀만 필터링
+        const waitingList = data.list.filter(item => item.status === '대기');
+
+        const totalTeams = waitingList.length;
+        const smallTeams = waitingList.filter(item => Number(item.count) <= 4).length;
+        const largeTeams = waitingList.filter(item => Number(item.count) >= 5).length;
+
+        totalEl.innerText = `${totalTeams}팀`;
+        smallEl.innerText = smallTeams;
+        largeEl.innerText = largeTeams;
+      } else {
+        totalEl.innerText = '0팀';
+        smallEl.innerText = '0';
+        largeEl.innerText = '0';
+      }
+    } catch (err) {
+      console.error('대기 현황 로드 실패:', err);
+      totalEl.innerText = '확인 불가';
+    }
+  }
+
+  /* 1~4인 / 5인 이상 버튼 선택 이벤트 */
+  function selectGroupType(type) {
+    const countInput = document.getElementById('cust-count');
+    if (type === 'small') {
+      countInput.value = 2;
+    } else {
+      countInput.value = 5;
+    }
+    validateGroupType();
+  }
+
+  /* 입력된 인원수에 따른 버튼 스타일 동기화 */
+  function validateGroupType() {
+    const count = Number(document.getElementById('cust-count').value);
+    const btnSmall = document.getElementById('btn-group-small');
+    const btnLarge = document.getElementById('btn-group-large');
+
+    if (count >= 5) {
+      btnLarge.className = "py-2.5 px-3 rounded-xl border-2 text-xs font-bold transition-all bg-flag text-paper border-flag";
+      btnSmall.className = "py-2.5 px-3 rounded-xl border-2 text-xs font-bold transition-all bg-white text-ink/60 border-ink/15";
+    } else {
+      btnSmall.className = "py-2.5 px-3 rounded-xl border-2 text-xs font-bold transition-all bg-flag text-paper border-flag";
+      btnLarge.className = "py-2.5 px-3 rounded-xl border-2 text-xs font-bold transition-all bg-white text-ink/60 border-ink/15";
+    }
+  }
+
+  /* 웨이팅 등록 요청 */
   async function registerWaiting(e) {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
@@ -64,7 +166,7 @@
       action: 'register',
       name: document.getElementById('cust-name').value,
       phone: document.getElementById('cust-phone').value,
-      count: document.getElementById('cust-count').value
+      count: Number(document.getElementById('cust-count').value)
     };
 
     try {
@@ -79,6 +181,8 @@
       if (result.success) {
         resultCard.classList.remove('hidden');
         document.getElementById('waiting-form').reset();
+        selectGroupType('small'); // 입력 폼 초기화
+        fetchWaitingCount(); // 대기 수 새로고침
       } else {
         alert('접수 실패: ' + (result.message || '알 수 없는 오류'));
       }
