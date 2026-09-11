@@ -87,10 +87,9 @@
 <script>
 /* =========================================================
    설정값
-   이 페이지는 아래 두 액션이 백엔드(Apps Script)에 있다고 가정해요:
-   - GET  ?action=waitingList  -> { success, waitings: [{ rowNum, time, name, phone, count, status }] }
-   - POST { action:'updateWaitingStatus', rowNum, status }  -> { success }
-   실제 백엔드 액션/필드명이 다르면 그에 맞춰 아래 fetchWaitingList / updateStatus 부분만 고치면 돼요.
+   Code.gs 백엔드 액션 명세:
+   - GET  ?action=waitingList  -> { success: true, list: [{ rowNum, waitNum, name, phone, count, status, time }] }
+   - POST { action: 'updateWaiting', rowNum, status } -> { success: true }
    ========================================================= */
 const CONFIG = {
   SCRIPT_URL: "https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec",
@@ -119,7 +118,7 @@ function fetchWaitingList() {
     .then(res => res.json())
     .then(data => {
       if (!data.success) throw new Error(data.message || '목록을 불러오지 못했습니다');
-      waitings = data.waitings || [];
+      waitings = data.list || []; // Code.gs에서 반환하는 'list' 키로 수정
       $('sync-status').innerText = '실시간 수신 중';
       $('status-dot').className = 'w-2 h-2 rounded-full bg-soju';
       renderList();
@@ -261,7 +260,7 @@ function escapeAttr(str) {
 }
 
 /* =========================================================
-   상태 변경 (낙관적 업데이트: 화면 먼저 바꾸고 서버 반영)
+   상태 변경 (Code.gs 액션명 'updateWaiting'으로 수정)
    ========================================================= */
 function updateStatus(rowNum, status) {
   const target = waitings.find(w => w.rowNum === rowNum);
@@ -275,7 +274,7 @@ function updateStatus(rowNum, status) {
   fetch(CONFIG.SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'updateWaitingStatus', rowNum, status }),
+    body: JSON.stringify({ action: 'updateWaiting', rowNum, status }), // Code.gs 수신 규격에 맞게 'updateWaiting'으로 수정
   })
     .then(res => res.json())
     .then(data => {
