@@ -9,101 +9,113 @@
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
 
     body {
-      background-color: #121212;
+      background-color: #1a1a1a;
       color: #ffffff;
       padding: 15px;
       user-select: none;
     }
 
+    /* 헤더 영역 */
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 15px;
-      padding-bottom: 10px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
       border-bottom: 2px solid #333;
     }
 
     .header h1 {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: #2ec4b6;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #f39c12; /* 주막 시그니처 옐로우 */
+      letter-spacing: -0.5px;
     }
 
     .status {
       font-size: 0.85rem;
-      color: #888;
+      color: #aaa;
       display: flex;
       align-items: center;
       gap: 6px;
+      background: #282828;
+      padding: 6px 12px;
+      border-radius: 20px;
     }
 
     .status-dot {
       width: 8px;
       height: 8px;
-      background-color: #2ec4b6;
+      background-color: #2ecc71;
       border-radius: 50%;
       display: inline-block;
+      box-shadow: 0 0 6px #2ecc71;
     }
 
+    /* 35개 테이블 그리드 레이아웃 */
     .grid-container {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 10px;
     }
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       .grid-container {
         grid-template-columns: repeat(5, 1fr);
         gap: 6px;
       }
     }
 
+    /* 테이블 카드 기본 (비활성/빈 테이블) */
     .table-card {
-      background-color: #1e1e1e;
-      border: 2px solid #333;
+      background-color: #262626;
+      border: 2px solid #3d3d3d;
       border-radius: 10px;
-      padding: 10px 8px;
-      min-height: 105px;
+      padding: 12px 10px;
+      min-height: 110px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       cursor: pointer;
-      transition: all 0.2s ease;
-      position: relative;
+      transition: transform 0.1s ease, border-color 0.2s ease;
     }
 
+    .table-card:active {
+      transform: scale(0.98);
+    }
+
+    /* 주문이 활성화된 테이블 */
     .table-card.active {
-      background-color: #132a28;
-      border-color: #2ec4b6;
-      box-shadow: 0 0 10px rgba(46, 196, 182, 0.3);
+      background-color: #2d2415;
+      border-color: #f39c12;
+      box-shadow: 0 4px 12px rgba(243, 156, 18, 0.2);
     }
 
     .table-header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
     }
 
     .table-num {
-      font-size: 1.1rem;
-      font-weight: 800;
-      color: #ddd;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: #888;
     }
 
     .table-card.active .table-num {
-      color: #2ec4b6;
+      color: #f39c12;
     }
 
     .table-summary {
-      font-size: 0.8rem;
-      color: #bbb;
-      margin-top: 4px;
-      line-height: 1.2;
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 6px;
+      line-height: 1.3;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -120,25 +132,26 @@
       display: flex;
       gap: 4px;
       align-items: center;
-      margin-top: 4px;
+      margin-top: 8px;
     }
 
     .item-count-badge {
-      background-color: #2ec4b6;
-      color: #121212;
-      font-size: 0.7rem;
-      padding: 2px 6px;
+      background-color: #e67e22;
+      color: #ffffff;
+      font-size: 0.75rem;
+      padding: 3px 8px;
       border-radius: 12px;
       font-weight: bold;
     }
 
+    /* 모달 UI */
     .modal-overlay {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba(0, 0, 0, 0.75);
+      background-color: rgba(0, 0, 0, 0.8);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -154,37 +167,38 @@
     }
 
     .modal-content {
-      background-color: #242424;
+      background-color: #2a2a2a;
       border-radius: 14px;
       width: 90%;
-      max-width: 440px;
-      max-height: 80vh;
+      max-width: 450px;
+      max-height: 85vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
       border: 1px solid #444;
     }
 
     .modal-header {
-      background-color: #005f73;
-      padding: 14px 18px;
+      background-color: #f39c12;
+      padding: 16px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      color: #fff;
+      color: #1a1a1a;
     }
 
     .modal-title {
-      font-size: 1.1rem;
-      font-weight: bold;
+      font-size: 1.2rem;
+      font-weight: 800;
     }
 
     .btn-close {
       background: none;
       border: none;
-      color: #fff;
-      font-size: 1.4rem;
+      color: #1a1a1a;
+      font-size: 1.6rem;
+      font-weight: bold;
       cursor: pointer;
     }
 
@@ -208,23 +222,24 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border: 1px solid #444;
     }
 
     .item-info {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
     .item-name {
-      font-size: 0.95rem;
+      font-size: 1rem;
       font-weight: 600;
       color: #fff;
     }
 
     .item-qty {
-      background-color: #f1f2f6;
-      color: #2f3542;
+      background-color: #f39c12;
+      color: #1a1a1a;
       padding: 2px 8px;
       border-radius: 6px;
       font-size: 0.85rem;
@@ -233,25 +248,30 @@
 
     .modal-footer {
       padding: 14px 16px;
-      background-color: #1c1c1c;
+      background-color: #222;
       border-top: 1px solid #333;
     }
 
     .btn-all-complete {
       width: 100%;
-      background-color: #2563eb;
+      background-color: #e67e22;
       color: #fff;
       border: none;
-      padding: 12px;
+      padding: 14px;
       border-radius: 8px;
       font-size: 1rem;
       font-weight: bold;
       cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-all-complete:active {
+      background-color: #d35400;
     }
 
     .btn-complete {
-      background-color: #2ec4b6;
-      color: #121212;
+      background-color: #2ecc71;
+      color: #ffffff;
       border: none;
       padding: 8px 14px;
       border-radius: 6px;
@@ -259,20 +279,25 @@
       font-weight: bold;
       cursor: pointer;
     }
+
+    .btn-complete:active {
+      background-color: #27ae60;
+    }
   </style>
 </head>
 <body>
 
   <div class="header">
-    <h1>🔔 서빙 현황판 (Serving)</h1>
+    <h1>🍻 청춘주막 서빙 현황판</h1>
     <div class="status">
-      <span class="status-dot"></span>
-      <span id="sync-status">연결 중...</span>
+      <span class="status-dot" id="status-dot"></span>
+      <span id="sync-status">연결 확인 중...</span>
     </div>
   </div>
 
   <div class="grid-container" id="grid-container"></div>
 
+  <!-- 상세 주문 확인 모달 -->
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
@@ -292,7 +317,7 @@
     const CONFIG = {
       GAS_URL: 'https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec', 
       TOTAL_TABLES: 35,
-      REFRESH_INTERVAL: 4000
+      REFRESH_INTERVAL: 3000
     };
 
     let currentActiveOrders = {};
@@ -326,24 +351,40 @@
     }
 
     function fetchServingOrders() {
-      fetch(`${CONFIG.GAS_URL}?action=serving&_=${new Date().getTime()}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.orders) {
-            processOrders(data.orders);
-            document.getElementById('sync-status').innerText = '실시간 수신 중';
-          }
-        })
-        .catch(err => {
-          console.error('주문 불러오기 오류:', err);
-          document.getElementById('sync-status').innerText = '연결 확인 필요';
-        });
+      // 리디렉션 및 브라우저 캐시 문제를 해결하기 위한 파라미터 추가
+      const requestUrl = `${CONFIG.GAS_URL}?action=serving&_=${new Date().getTime()}`;
+
+      fetch(requestUrl, {
+        method: 'GET',
+        redirect: 'follow'
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('네트워크 응답 이상');
+        return res.json();
+      })
+      .then(data => {
+        if (data.success && data.orders) {
+          processOrders(data.orders);
+          document.getElementById('sync-status').innerText = '실시간 수신 중';
+          document.getElementById('status-dot').style.backgroundColor = '#2ecc71';
+        } else {
+          // 백엔드에서 success가 false이거나 orders가 없을 때
+          processOrders([]);
+          document.getElementById('sync-status').innerText = '실시간 수신 중 (주문 없음)';
+        }
+      })
+      .catch(err => {
+        console.error('주문 불러오기 오류:', err);
+        document.getElementById('sync-status').innerText = '연결 확인 필요';
+        document.getElementById('status-dot').style.backgroundColor = '#e74c3c';
+      });
     }
 
     function processOrders(orders) {
-      // 프론트엔드 자체 저장 상태 없이, 매 수신마다 객체를 초기화하여 시트 상태만 100% 반영
+      // 로컬 메모리 초기화 -> 구글 시트 원본 데이터 상태만 100% 추적 (상태 '확인'으로 변경 시 되돌아옴)
       currentActiveOrders = {}; 
 
+      // 전체 35개 테이블 UI 초기화
       for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
         const box = document.getElementById(`table-box-${i}`);
         if (box) {
@@ -359,6 +400,7 @@
         const tableNum = match ? parseInt(match[0], 10) : null;
         
         if (tableNum && tableNum >= 1 && tableNum <= CONFIG.TOTAL_TABLES) {
+          // '인원' 관련 메뉴 필터링
           const validItems = (order.items || []).filter(item => {
             const name = String(item.name || '').trim();
             return !name.startsWith("인원") && !name.includes("인원수");
@@ -384,7 +426,7 @@
 
             if (existingItem) {
               existingItem.qty += qty;
-              existingItem.rowNums.push(newItem.rowNum);
+              if (newItem.rowNum) existingItem.rowNums.push(newItem.rowNum);
               if (!existingItem.orderIds.includes(order.orderNumber)) {
                 existingItem.orderIds.push(order.orderNumber);
               }
@@ -392,7 +434,7 @@
               currentActiveOrders[tableNum].items.push({
                 name: newItem.name,
                 qty: qty,
-                rowNums: [newItem.rowNum],
+                rowNums: newItem.rowNum ? [newItem.rowNum] : [],
                 orderIds: [order.orderNumber]
               });
             }
@@ -402,6 +444,7 @@
 
       updateUI();
 
+      // 모달이 켜져 있는 상태에서 시트 데이터가 바뀐 경우 실시간 갱신
       if (selectedTableNum) {
         if (currentActiveOrders[selectedTableNum]) {
           renderModalContent(currentActiveOrders[selectedTableNum]);
