@@ -97,6 +97,10 @@
       class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors">
       🍶 메뉴별 보기
     </button>
+    <button id="tab-time-view" onclick="switchView('time')"
+      class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors">
+      ⏰ 이용시간
+    </button>
     <span class="w-px h-5 bg-paper/20 mx-0.5 shrink-0"></span>
     <button id="btn-filter" onclick="toggleOverTimeFilter()"
       class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 border-flag text-flag bg-paper transition-colors">
@@ -112,6 +116,9 @@
 
 <!-- 메뉴별 보기: 같은 메뉴를 기다리는 테이블을 대기시간 순으로 한눈에 -->
 <main class="px-3 pt-3 hidden space-y-2.5" id="view-menu-list"></main>
+
+<!-- 이용시간 보기: 테이블별 착석 경과시간 / 퇴장 임박 순 정렬 -->
+<main class="px-3 pt-3 hidden space-y-2.5" id="view-time-list"></main>
 
 <!-- 상세 모달 -->
 <div class="fixed inset-0 z-40 bg-ink/60 hidden items-center justify-center p-4 fade-in" id="modal-overlay">
@@ -144,6 +151,11 @@ const CONFIG = {
   REFRESH_INTERVAL: 4000,
   WARN_MINUTES_NEAR: 30,
   WARN_MINUTES_OVER: 60,
+
+  SEAT_BASE_MINUTES: 120,     // 기본 이용시간 2시간
+  SEAT_EXTEND_MINUTES: 60,    // 메인메뉴 추가주문 시 +1시간 (총 3시간)
+  SEAT_WARN_BEFORE_MINUTES: 20, // 퇴장시간 20분 전부터 경고색
+  MAIN_CATEGORY_KEYWORD: '메인', // 이 단어가 포함된 카테고리를 "메인메뉴"로 자동 인식
 };
 
 let currentActiveOrders = {};
@@ -154,11 +166,20 @@ let currentView = 'menu'; // 'table' | 'menu' — 메뉴별 보기를 기본으�
 /* rowNum -> 몇 개까지 로컬로 "완료" 표시했는지 (전체 수량에 도달하면 서버에 완료 요청) */
 let unitProgress = {};
 
+/* 테이블별 착석 기록: { [table]: { startTime: Date, extended: boolean } } (이 브라우저에 저장됨) */
+let seatRecords = {};
+let seatRecordsLoaded = false;
+
+/* 메뉴 이름 -> 카테고리 (메인메뉴 자동 감지용) */
+let menuCategoryMap = {};
+
 const $ = (id) => document.getElementById(id);
 
 window.onload = function () {
   renderTableGrid();
   switchView('menu');
+  loadSeatRecords();
+  loadMenuCategories();
   fetchKitchenOrders();
   setInterval(fetchKitchenOrders, CONFIG.REFRESH_INTERVAL);
   setInterval(refreshCurrentView, 10000);
@@ -171,6 +192,7 @@ function switchView(view) {
   currentView = view;
   $('view-table').classList.toggle('hidden', view !== 'table');
   $('view-menu-list').classList.toggle('hidden', view !== 'menu');
+  $('view-time-list').classList.toggle('hidden', view !== 'time');
   applyViewTabStyles();
   refreshCurrentView();
 }
@@ -178,15 +200,19 @@ function switchView(view) {
 function applyViewTabStyles() {
   const tableBtn = $('tab-table-view');
   const menuBtn = $('tab-menu-view');
+  const timeBtn = $('tab-time-view');
   const active = 'bg-paper text-night border-paper';
   const inactive = 'bg-transparent text-paper/70 border-paper/30';
   tableBtn.className = 'shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors ' + (currentView === 'table' ? active : inactive);
   menuBtn.className = 'shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors ' + (currentView === 'menu' ? active : inactive);
+  timeBtn.className = 'shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors ' + (currentView === 'time' ? active : inactive);
 }
 
 function refreshCurrentView() {
   if (currentView === 'menu') {
     renderMenuView();
+  } else if (currentView === 'time') {
+    renderTimeView();
   } else {
     updateTimesUI();
   }
@@ -253,6 +279,130 @@ function parseOrderDate(timeStr) {
 }
 
 /* =========================================================
+   메뉴 카테고리 로드 (메인메뉴 추가주문 자동 감지용)
+   메뉴판 API를 그대로 재사용해서, 카테고리명에 "메인"이 들어간
+   메뉴가 주문되면 자동으로 이용시간을 연장한다.
+   ========================================================= */
+function loadMenuCategories() {
+  fetch(`${CONFIG.GAS_URL}?action=menu`)
+    .then(res => res.json())
+    .then(data => {
+      if (!data.success || !data.menu) return;
+      const map = {};
+      data.menu.forEach(item => { map[item.name] = item.category || ''; });
+      menuCategoryMap = map;
+    })
+    .catch(err => console.error('메뉴 카테고리 로드 실패 (메인메뉴 자동감지는 꺼진 상태로 진행):', err));
+}
+
+function isMainDish(itemName) {
+  const cat = menuCategoryMap[itemName];
+  return !!cat && cat.includes(CONFIG.MAIN_CATEGORY_KEYWORD);
+}
+
+/* =========================================================
+   착석 시간 기록
+   이 파일은 외부 배포용 페이지라 Claude 아티팩트 전용 저장소를 쓸 수
+   없어서, 이 브라우저(이 기기)에 남는 localStorage에 저장한다.
+   즉 "이용시간" 기록은 이 화면을 여는 기기별로 따로 저장된다 —
+   여러 기기에서 똑같이 보려면 항상 같은 기기(예: 홀 태블릿 1대)로
+   보거나, 추후 구글시트 백엔드에 저장하도록 확장하면 된다.
+   ========================================================= */
+const SEAT_STORAGE_PREFIX = 'ipw_seat_';
+
+function loadSeatRecords() {
+  try {
+    for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+      const raw = localStorage.getItem(SEAT_STORAGE_PREFIX + i);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      seatRecords[i] = { startTime: new Date(parsed.startTime), extended: !!parsed.extended };
+    }
+  } catch (err) {
+    console.error('착석 기록 로드 실패:', err);
+  } finally {
+    seatRecordsLoaded = true;
+    if (currentView === 'time') renderTimeView();
+  }
+}
+
+function saveSeatRecord(table) {
+  const record = seatRecords[table];
+  if (!record) return;
+  try {
+    localStorage.setItem(SEAT_STORAGE_PREFIX + table, JSON.stringify({
+      startTime: record.startTime.toISOString(),
+      extended: record.extended
+    }));
+  } catch (err) {
+    console.error('착석 기록 저장 실패:', err);
+  }
+}
+
+function deleteSeatRecordRemote(table) {
+  try {
+    localStorage.removeItem(SEAT_STORAGE_PREFIX + table);
+  } catch (err) {
+    console.error('착석 기록 삭제 실패:', err);
+  }
+}
+
+/* 첫 주문이 들어온 테이블에 착석 기록이 없으면 자동 시작 */
+function ensureSeatStarted(table, timeStr) {
+  if (!seatRecordsLoaded || seatRecords[table]) return;
+  seatRecords[table] = { startTime: parseOrderDate(timeStr), extended: false };
+  saveSeatRecord(table);
+}
+
+/* 메인메뉴가 감지되면 자동으로 3시간까지 연장 */
+function ensureSeatExtended(table) {
+  const record = seatRecords[table];
+  if (!record || record.extended) return;
+  record.extended = true;
+  saveSeatRecord(table);
+}
+
+function startSeatManual(table) {
+  seatRecords[table] = { startTime: new Date(), extended: false };
+  saveSeatRecord(table);
+  renderTimeView();
+}
+
+function toggleExtendManual(table) {
+  const record = seatRecords[table];
+  if (!record) return;
+  record.extended = !record.extended;
+  saveSeatRecord(table);
+  renderTimeView();
+}
+
+function clearSeat(table) {
+  delete seatRecords[table];
+  deleteSeatRecordRemote(table);
+  renderTimeView();
+}
+
+function computeSeatStatus(table) {
+  const record = seatRecords[table];
+  if (!record) return null;
+  const limitMin = record.extended ? (CONFIG.SEAT_BASE_MINUTES + CONFIG.SEAT_EXTEND_MINUTES) : CONFIG.SEAT_BASE_MINUTES;
+  const elapsedMs = new Date() - record.startTime;
+  const elapsedMin = Math.floor(elapsedMs / 60000);
+  const remainingMin = limitMin - elapsedMin;
+  const deadline = new Date(record.startTime.getTime() + limitMin * 60000);
+  const deadlineStr = deadline.toTimeString().slice(0, 5);
+  return {
+    elapsedMin,
+    remainingMin,
+    limitMin,
+    deadlineStr,
+    extended: record.extended,
+    isOver: remainingMin <= 0,
+    isNear: remainingMin > 0 && remainingMin <= CONFIG.SEAT_WARN_BEFORE_MINUTES,
+  };
+}
+
+/* =========================================================
    주문 병합
    같은 메뉴가 여러 번 주문되면 occurrences 배열에 각 주문 건(rowNum)을
    별도로 저장해서, 조리 완료도 각 건 단위(그리고 그 안에서 1개씩)로
@@ -277,6 +427,11 @@ function processOrders(orders) {
     const tableNum = match ? parseInt(match[0], 10) : null;
 
     if (tableNum && tableNum >= 1 && tableNum <= CONFIG.TOTAL_TABLES) {
+      ensureSeatStarted(tableNum, order.time);
+      (order.items || []).forEach(it => {
+        if (isMainDish(it.name)) ensureSeatExtended(tableNum);
+      });
+
       const validItems = (order.items || []).filter(item => {
         const name = String(item.name || '').trim();
         return !name.startsWith('인원') && !name.includes('인원수');
@@ -486,6 +641,92 @@ function renderMenuView() {
 
   if (!container.innerHTML.trim()) {
     container.innerHTML = `<p class="text-center text-ink/40 text-sm py-10">1시간 넘게 지연된 메뉴가 없어요 👍</p>`;
+  }
+}
+
+/* =========================================================
+   이용시간 보기: 착석 경과 / 퇴장 임박 순 정렬
+   ========================================================= */
+function renderTimeView() {
+  const container = $('view-time-list');
+
+  if (!seatRecordsLoaded) {
+    container.innerHTML = `<p class="text-center text-ink/40 text-sm py-10">착석 기록을 불러오는 중...</p>`;
+    return;
+  }
+
+  const seated = [];
+  const empty = [];
+  for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+    const status = computeSeatStatus(i);
+    if (status) seated.push({ table: i, status });
+    else empty.push(i);
+  }
+
+  // 가장 급한(남은 시간이 적은/이미 초과한) 테이블이 위로
+  seated.sort((a, b) => a.status.remainingMin - b.status.remainingMin);
+
+  container.innerHTML = '';
+
+  seated.forEach(({ table, status }) => {
+    const card = document.createElement('div');
+    const toneClass = status.isOver
+      ? 'warning-over border-2 border-flag'
+      : status.isNear
+        ? 'warning-near border-2 border-gold'
+        : 'border-2 border-ink/10';
+    card.className = 'bg-white rounded-xl shadow-card p-3 ' + toneClass;
+
+    const hours = Math.floor(status.elapsedMin / 60);
+    const mins = status.elapsedMin % 60;
+    const elapsedStr = `${hours > 0 ? hours + '시간 ' : ''}${mins}분`;
+    const remainStr = status.isOver
+      ? `${Math.abs(status.remainingMin)}분 초과`
+      : `${status.remainingMin}분 남음`;
+    const remainClass = status.isOver ? 'text-flag' : (status.isNear ? 'text-gold' : 'text-soju');
+
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <span class="font-display text-lg">테이블 ${table}</span>
+        <span class="text-xs font-bold ${remainClass}">${status.isOver ? '🚨 ' : ''}${remainStr}</span>
+      </div>
+      <div class="flex items-center justify-between mt-1 text-[11px] text-ink/50">
+        <span>착석 경과 ${elapsedStr}</span>
+        <span>${status.deadlineStr}까지 · ${status.extended ? '3시간(연장됨)' : '2시간'}</span>
+      </div>
+      <div class="flex gap-1.5 mt-2.5">
+        <button class="flex-1 text-xs font-bold py-2 rounded-lg border-2 transition-colors ${
+          status.extended ? 'bg-gold text-paper border-gold' : 'bg-paper text-ink/60 border-ink/15'
+        }" onclick="toggleExtendManual(${table})">
+          🍽️ 메인메뉴 ${status.extended ? '연장됨' : '추가주문 확인'}
+        </button>
+        <button class="text-xs font-bold px-3 py-2 rounded-lg border-2 border-ink/15 text-ink/60" onclick="clearSeat(${table})">
+          퇴장 처리
+        </button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  if (empty.length > 0) {
+    const emptyWrap = document.createElement('div');
+    emptyWrap.className = 'pt-1';
+    emptyWrap.innerHTML = `<p class="text-xs text-ink/40 font-bold mb-1.5 px-0.5">빈 테이블 · 착석 시작</p>`;
+    const grid = document.createElement('div');
+    grid.className = 'grid grid-cols-5 gap-1.5';
+    empty.forEach(table => {
+      const btn = document.createElement('button');
+      btn.className = 'py-2 rounded-lg border-2 border-ink/15 text-ink/50 font-bold text-xs active:bg-night active:text-paper active:border-night transition-colors';
+      btn.textContent = table;
+      btn.onclick = () => startSeatManual(table);
+      grid.appendChild(btn);
+    });
+    emptyWrap.appendChild(grid);
+    container.appendChild(emptyWrap);
+  }
+
+  if (seated.length === 0 && empty.length === 0) {
+    container.innerHTML = `<p class="text-center text-ink/40 text-sm py-10">테이블 정보가 없어요</p>`;
   }
 }
 
