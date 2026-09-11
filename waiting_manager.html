@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>무한해적상회 - 웨이팅 관리</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper: '#F5EFDD',
+          ink: '#26221C',
+          flag: '#C23B22',
+          flagdark: '#9E2E19',
+          gold: '#C89B3C',
+          night: '#1F2A3C',
+          nightlight: '#2E3E56',
+          soju: '#4C7A5A',
+        },
+        fontFamily: {
+          display: ['"Black Han Sans"', 'sans-serif'],
+          body: ['"Noto Sans KR"', 'sans-serif'],
+        },
+        boxShadow: {
+          card: '0 2px 10px rgba(38,34,28,0.08)',
+          lift: '0 8px 24px rgba(38,34,28,0.18)',
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  body { font-family: 'Noto Sans KR', sans-serif; word-break: keep-all; }
+  .font-display { font-family: 'Black Han Sans', sans-serif; letter-spacing: 0.5px; }
+  ::-webkit-scrollbar { display: none; }
+  * { -ms-overflow-style: none; scrollbar-width: none; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .fade-in { animation: fadeIn 0.2s ease-out both; }
+
+  @keyframes toastIn {
+    0% { transform: translate(-50%, 20px); opacity: 0; }
+    15% { transform: translate(-50%, 0); opacity: 1; }
+    85% { transform: translate(-50%, 0); opacity: 1; }
+    100% { transform: translate(-50%, 20px); opacity: 0; }
+  }
+  .toast-anim { animation: toastIn 1.8s ease-in-out both; }
+
+  .status-btn { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+  .cancelled-card { opacity: 0.55; }
+  .cancelled-name { text-decoration: line-through; }
+</style>
+</head>
+
+<body class="bg-paper text-ink min-h-screen pb-8">
+
+<!-- 헤더 -->
+<header class="bg-night text-paper px-4 pt-4 pb-3 sticky top-0 z-20 shadow-card">
+  <div class="flex items-center justify-between gap-2">
+    <h1 class="font-display text-lg sm:text-xl">🎫 무한해적상회 · 웨이팅 관리</h1>
+    <div class="flex items-center gap-1.5 text-[11px] text-paper/70">
+      <span id="status-dot" class="w-2 h-2 rounded-full bg-soju"></span>
+      <span id="sync-status">연결 중...</span>
+    </div>
+  </div>
+  <div class="mt-2.5 flex items-center gap-1.5 overflow-x-auto">
+    <button id="tab-waiting" onclick="switchFilter('waiting')" class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors"></button>
+    <button id="tab-all" onclick="switchFilter('all')" class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors">전체</button>
+    <button id="tab-entered" onclick="switchFilter('entered')" class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors">입장완료</button>
+    <button id="tab-cancelled" onclick="switchFilter('cancelled')" class="shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors">취소</button>
+  </div>
+</header>
+
+<main class="px-3 pt-3 space-y-2.5" id="list-container"></main>
+
+<div id="toast" class="hidden fixed bottom-6 left-1/2 z-50 bg-ink text-paper text-xs font-bold px-4 py-2.5 rounded-full shadow-lift whitespace-nowrap"></div>
+
+<script>
+/* =========================================================
+   설정값
+   이 페이지는 아래 두 액션이 백엔드(Apps Script)에 있다고 가정해요:
+   - GET  ?action=waitingList  -> { success, waitings: [{ rowNum, time, name, phone, count, status }] }
+   - POST { action:'updateWaitingStatus', rowNum, status }  -> { success }
+   실제 백엔드 액션/필드명이 다르면 그에 맞춰 아래 fetchWaitingList / updateStatus 부분만 고치면 돼요.
+   ========================================================= */
+const CONFIG = {
+  SCRIPT_URL: "https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec",
+  REFRESH_INTERVAL: 5000,
+  STATUS: { WAITING: '대기', ENTERED: '입장', CANCELLED: '취소' },
+};
+
+let waitings = [];
+let currentFilter = 'waiting';
+let pendingUpdate = {}; // rowNum -> true (낙관적 업데이트 중 표시)
+
+const $ = (id) => document.getElementById(id);
+
+window.onload = function () {
+  $('tab-waiting').innerText = '대기중';
+  switchFilter('waiting');
+  fetchWaitingList();
+  setInterval(fetchWaitingList, CONFIG.REFRESH_INTERVAL);
+};
+
+/* =========================================================
+   데이터 가져오기
+   ========================================================= */
+function fetchWaitingList() {
+  fetch(`${CONFIG.SCRIPT_URL}?action=waitingList`)
+    .then(res => res.json())
+    .then(data => {
+      if (!data.success) throw new Error(data.message || '목록을 불러오지 못했습니다');
+      waitings = data.waitings || [];
+      $('sync-status').innerText = '실시간 수신 중';
+      $('status-dot').className = 'w-2 h-2 rounded-full bg-soju';
+      renderList();
+    })
+    .catch(err => {
+      console.error('웨이팅 목록 로드 오류:', err);
+      $('sync-status').innerText = '연결 확인 필요';
+      $('status-dot').className = 'w-2 h-2 rounded-full bg-flag';
+    });
+}
+
+/* =========================================================
+   필터 탭
+   ========================================================= */
+function switchFilter(filter) {
+  currentFilter = filter;
+  const map = {
+    waiting: 'tab-waiting',
+    all: 'tab-all',
+    entered: 'tab-entered',
+    cancelled: 'tab-cancelled',
+  };
+  Object.entries(map).forEach(([key, id]) => {
+    const btn = $(id);
+    const active = key === filter;
+    btn.className = 'shrink-0 px-3 py-1.5 rounded-full font-bold text-xs border-2 transition-colors ' +
+      (active ? 'bg-paper text-night border-paper' : 'bg-transparent text-paper/70 border-paper/30');
+  });
+  renderList();
+}
+
+/* =========================================================
+   목록 렌더링
+   ========================================================= */
+function renderList() {
+  const container = $('list-container');
+
+  // 접수된 순서 그대로 (rowNum 오름차순 = 먼저 접수한 사람이 위)
+  const sorted = [...waitings].sort((a, b) => a.rowNum - b.rowNum);
+
+  const filtered = sorted.filter(w => {
+    if (currentFilter === 'waiting') return w.status === CONFIG.STATUS.WAITING;
+    if (currentFilter === 'entered') return w.status === CONFIG.STATUS.ENTERED;
+    if (currentFilter === 'cancelled') return w.status === CONFIG.STATUS.CANCELLED;
+    return true; // all
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<p class="text-center text-ink/40 text-sm py-14">표시할 웨이팅이 없어요</p>`;
+    return;
+  }
+
+  // "대기중" 순번은 대기 상태인 사람들 사이에서만 매긴다
+  let waitingRank = 0;
+  const waitingOrderMap = {};
+  sorted.forEach(w => {
+    if (w.status === CONFIG.STATUS.WAITING) {
+      waitingRank += 1;
+      waitingOrderMap[w.rowNum] = waitingRank;
+    }
+  });
+
+  container.innerHTML = '';
+
+  filtered.forEach(w => {
+    const isCancelled = w.status === CONFIG.STATUS.CANCELLED;
+    const isEntered = w.status === CONFIG.STATUS.ENTERED;
+    const isWaiting = w.status === CONFIG.STATUS.WAITING;
+    const rank = waitingOrderMap[w.rowNum];
+
+    const card = document.createElement('div');
+    card.className = 'bg-white rounded-xl shadow-card p-3.5' + (isCancelled ? ' cancelled-card' : '');
+
+    const badgeClass = isWaiting
+      ? 'bg-gold/15 text-gold'
+      : isEntered
+        ? 'bg-soju/15 text-soju'
+        : 'bg-ink/10 text-ink/50';
+
+    const rankBadge = isWaiting
+      ? `<span class="font-display text-2xl text-flag mr-2">${rank}</span>`
+      : `<span class="font-display text-2xl text-ink/20 mr-2">–</span>`;
+
+    const phoneDigits = String(w.phone || '').replace(/[^0-9]/g, '');
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between mb-2">
+        <div class="flex items-center min-w-0">
+          ${rankBadge}
+          <div class="min-w-0">
+            <p class="font-bold text-base truncate ${isCancelled ? 'cancelled-name' : ''}">${escapeHtml(w.name || '이름없음')}</p>
+            <p class="text-[11px] text-ink/40">${escapeHtml(w.time || '')} 접수 · ${escapeHtml(String(w.count || '-'))}명</p>
+          </div>
+        </div>
+        <span class="shrink-0 text-xs font-bold px-2 py-1 rounded-full ${badgeClass}">${escapeHtml(w.status || '-')}</span>
+      </div>
+
+      <div class="flex items-center gap-1.5 mb-2.5">
+        <a href="tel:${phoneDigits}" class="flex-1 bg-night text-paper text-sm font-bold py-2 rounded-lg text-center active:scale-[0.98] transition-transform">
+          📞 ${escapeHtml(w.phone || '번호없음')}
+        </a>
+        <button class="shrink-0 border-2 border-ink/15 text-ink/60 text-xs font-bold px-3 py-2 rounded-lg active:scale-[0.98] transition-transform" onclick="copyPhone('${escapeAttr(w.phone || '')}')">
+          복사
+        </button>
+      </div>
+
+      <div class="grid grid-cols-3 gap-1.5">
+        ${statusButtonHtml(w, CONFIG.STATUS.WAITING, '대기', 'gold')}
+        ${statusButtonHtml(w, CONFIG.STATUS.ENTERED, '입장', 'soju')}
+        ${statusButtonHtml(w, CONFIG.STATUS.CANCELLED, '취소', 'flag')}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function statusButtonHtml(w, targetStatus, label, colorToken) {
+  const isActive = w.status === targetStatus;
+  const activeClasses = {
+    gold: 'bg-gold border-gold text-paper',
+    soju: 'bg-soju border-soju text-paper',
+    flag: 'bg-flag border-flag text-paper',
+  }[colorToken];
+  const cls = isActive ? activeClasses : 'bg-paper border-ink/15 text-ink/50';
+  return `
+    <button class="status-btn text-xs font-bold py-2 rounded-lg border-2 transition-colors active:scale-95 ${cls}"
+      onclick="updateStatus(${w.rowNum}, '${targetStatus}')">
+      ${label}
+    </button>`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+function escapeAttr(str) {
+  return String(str).replace(/'/g, "\\'");
+}
+
+/* =========================================================
+   상태 변경 (낙관적 업데이트: 화면 먼저 바꾸고 서버 반영)
+   ========================================================= */
+function updateStatus(rowNum, status) {
+  const target = waitings.find(w => w.rowNum === rowNum);
+  if (!target || target.status === status || pendingUpdate[rowNum]) return;
+
+  const prevStatus = target.status;
+  target.status = status;
+  pendingUpdate[rowNum] = true;
+  renderList();
+
+  fetch(CONFIG.SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'updateWaitingStatus', rowNum, status }),
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (!data.success) throw new Error(data.message || '상태 변경 실패');
+      showToast(`${target.name || ''} · ${status} 처리 완료`);
+    })
+    .catch(err => {
+      console.error('상태 변경 오류:', err);
+      target.status = prevStatus; // 실패 시 되돌리기
+      renderList();
+      showToast('상태 변경에 실패했어요. 다시 시도해주세요');
+    })
+    .finally(() => {
+      delete pendingUpdate[rowNum];
+    });
+}
+
+/* =========================================================
+   전화번호 복사
+   ========================================================= */
+function copyPhone(phone) {
+  const done = () => showToast('전화번호가 복사되었어요');
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(phone).then(done).catch(() => fallbackCopy(phone, done));
+  } else {
+    fallbackCopy(phone, done);
+  }
+}
+function fallbackCopy(text, cb) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); cb(); } catch (e) { showToast('복사에 실패했어요'); }
+  document.body.removeChild(ta);
+}
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  t.classList.remove('toast-anim'); void t.offsetWidth; t.classList.add('toast-anim');
+  setTimeout(() => t.classList.add('hidden'), 1800);
+}
+</script>
+</body>
+</html>
