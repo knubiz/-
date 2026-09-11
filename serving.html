@@ -39,7 +39,6 @@
       min-height: 100vh;
     }
 
-    /* ============ 헤더 (버건디 깃발 & 물결 가장자리) ============ */
     .header {
       position: relative;
       background-color: var(--flag-red);
@@ -125,7 +124,6 @@
       box-shadow: 0 0 6px #34D399;
     }
 
-    /* ============ 그리드 & 테이블 카드 ============ */
     .grid-container {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -160,14 +158,12 @@
       box-shadow: 0 4px 14px rgba(194,59,34,0.18);
     }
 
-    /* 30분 이상 경과 (주황) */
     .table-card.warning-near {
       border: 2px solid var(--warn-orange) !important;
       background-color: #FFFDF5 !important;
       box-shadow: 0 0 10px rgba(217, 119, 6, 0.25);
     }
 
-    /* 1시간 이상 경과 (레드 점멸) */
     .table-card.warning-over {
       background-color: #FFF5F5 !important;
       border: 2px solid var(--flag-red) !important;
@@ -260,7 +256,6 @@
       100% { opacity: 1; }
     }
 
-    /* ============ 모달 스타일 ============ */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0;
@@ -487,14 +482,14 @@
       GAS_URL: 'https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec', 
       TOTAL_TABLES: 35,
       REFRESH_INTERVAL: 4000,
-      WARN_MINUTES_NEAR: 30,  // 30분 경과 시 주황불
-      WARN_MINUTES_OVER: 60   // 1시간 경과 시 빨간불
+      WARN_MINUTES_NEAR: 30,
+      WARN_MINUTES_OVER: 60
     };
 
     let currentActiveOrders = {};
     let selectedTableNum = null;
     let isFilterOverTime = false;
-    let selectedQtyMap = {}; // 항목별 선택 수량 저장
+    let selectedQtyMap = {};
 
     window.onload = function() {
       renderTableGrid();
@@ -596,24 +591,22 @@
             const qty = parseInt(newItem.qty || 1, 10);
             const existingItem = currentActiveOrders[tableNum].items.find(i => i.name === newItem.name);
 
-            // 각 행 번호(rowNum)별 개별 관리를 위한 데이터 저장
-            const itemDetails = Array(qty).fill().map(() => ({
-              rowNum: newItem.rowNum,
-              orderId: order.orderNumber
-            }));
-
             if (existingItem) {
               existingItem.qty += qty;
-              existingItem.details = existingItem.details.concat(itemDetails);
-              if (!existingItem.orderIds.includes(order.orderNumber)) {
-                existingItem.orderIds.push(order.orderNumber);
-              }
+              existingItem.sources.push({
+                rowNum: newItem.rowNum,
+                orderId: order.orderNumber,
+                qty: qty
+              });
             } else {
               currentActiveOrders[tableNum].items.push({
                 name: newItem.name,
                 qty: qty,
-                details: itemDetails,
-                orderIds: [order.orderNumber]
+                sources: [{
+                  rowNum: newItem.rowNum,
+                  orderId: order.orderNumber,
+                  qty: qty
+                }]
               });
             }
           });
@@ -703,7 +696,7 @@
       if (!tableData || !tableData.items || tableData.items.length === 0) return;
 
       selectedTableNum = tableNum;
-      selectedQtyMap = {}; // 모달 열 때 수량 선택 초기화
+      selectedQtyMap = {};
       renderModalContent(tableData);
       document.getElementById('modal-overlay').classList.add('open');
     }
@@ -730,7 +723,7 @@
         li.className = 'item-card';
         
         if (!selectedQtyMap[index]) {
-          selectedQtyMap[index] = item.qty; // 기본적으로 전체 수량 선택
+          selectedQtyMap[index] = item.qty; 
         }
 
         const isMulti = item.qty > 1;
@@ -785,21 +778,28 @@
       const item = currentActiveOrders[selectedTableNum].items[itemIdx];
       if (!item) return;
 
-      const countToComplete = selectedQtyMap[itemIdx] || item.qty;
-      // 완료할 개수만큼 details에서 추출
-      const targets = item.details.slice(0, countToComplete);
+      let remainingToComplete = selectedQtyMap[itemIdx] || item.qty;
+      const promises = [];
 
-      const promises = targets.map(target => {
-        return fetch(CONFIG.GAS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            action: 'completeItem',
-            rowNum: target.rowNum,
-            orderId: target.orderId
+      for (const src of item.sources) {
+        if (remainingToComplete <= 0) break;
+
+        const completeAmount = Math.min(remainingToComplete, src.qty);
+        remainingToComplete -= completeAmount;
+
+        promises.push(
+          fetch(CONFIG.GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({
+              action: 'completeItem',
+              rowNum: src.rowNum,
+              orderId: src.orderId,
+              completeQty: completeAmount
+            })
           })
-        });
-      });
+        );
+      }
 
       Promise.all(promises).then(() => {
         delete selectedQtyMap[itemIdx];
