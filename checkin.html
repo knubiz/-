@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>청춘주막 - 홀/테이블 이용시간 현황판</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    }
+
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      padding: 15px;
+      user-select: none;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #333;
+    }
+
+    .header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #3b82f6;
+    }
+
+    .status {
+      font-size: 0.85rem;
+      color: #888;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #2ec4b6;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 600px) {
+      .grid-container {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 6px;
+      }
+    }
+
+    .table-card {
+      background-color: #1e1e1e;
+      border: 2px solid #333;
+      border-radius: 10px;
+      padding: 12px 10px;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .table-card.occupied {
+      background-color: #111d2a;
+      border-color: #3b82f6;
+    }
+
+    /* 1시간 30분 경과 (주의 - 주황색) */
+    .table-card.warning-near {
+      border-color: #f59e0b !important;
+      background-color: #2a1f11 !important;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+    }
+
+    /* 2시간 초과 (경고 - 빨간색 점멸) */
+    .table-card.warning-over {
+      background-color: #3a0d10 !important;
+      border-color: #ef4444 !important;
+      animation: blink-border 1.2s infinite alternate;
+    }
+
+    @keyframes blink-border {
+      0% { box-shadow: 0 0 5px #ef4444; border-color: #ef4444; }
+      100% { box-shadow: 0 0 18px #ef4444; border-color: #f87171; }
+    }
+
+    .table-num {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #888;
+    }
+
+    .table-card.occupied .table-num {
+      color: #60a5fa;
+    }
+
+    .table-status-text {
+      font-size: 0.8rem;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .table-card.occupied .table-status-text {
+      color: #aaa;
+    }
+
+    .time-display {
+      margin-top: 6px;
+    }
+
+    .entry-time {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+
+    .elapsed-time {
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: #38bdf8;
+      margin-top: 2px;
+    }
+
+    .elapsed-time.near { color: #f59e0b; }
+    .elapsed-time.over { color: #ef4444; }
+
+    .btn-checkout {
+      margin-top: 8px;
+      width: 100%;
+      background-color: #ef4444;
+      color: #fff;
+      border: none;
+      padding: 6px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: none;
+    }
+
+    .table-card.occupied .btn-checkout {
+      display: block;
+    }
+
+    .badge-over {
+      background-color: #ef4444;
+      color: #fff;
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: bold;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      animation: blink-badge 1s infinite alternate;
+    }
+
+    @keyframes blink-badge {
+      0% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>🏛 홀/테이블 이용시간 현황판</h1>
+    <div class="status">
+      <span class="status-dot"></span>
+      <span id="sync-status">연결 중...</span>
+    </div>
+  </div>
+
+  <div class="grid-container" id="grid-container"></div>
+
+  <script>
+    const CONFIG = {
+      GAS_URL: 'https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec', 
+      TOTAL_TABLES: 35,
+      REFRESH_INTERVAL: 5000,
+      LIMIT_MINUTES_NEAR: 90,  // 1시간 30분
+      LIMIT_MINUTES_OVER: 120  // 2시간
+    };
+
+    // 로컬스토리지 활용: 페이지를 새로고침해도 입장시간 유지
+    let tableSessions = JSON.parse(localStorage.getItem('qb_table_sessions') || '{}');
+
+    window.onload = function() {
+      renderGrid();
+      fetchOrders();
+      setInterval(fetchOrders, CONFIG.REFRESH_INTERVAL);
+      setInterval(updateTimersUI, 5000);
+    };
+
+    function renderGrid() {
+      const container = document.getElementById('grid-container');
+      container.innerHTML = '';
+
+      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+        const card = document.createElement('div');
+        card.className = 'table-card';
+        card.id = `table-card-${i}`;
+
+        card.innerHTML = `
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="table-num">${i}번 테이블</span>
+              <div id="badge-box-${i}"></div>
+            </div>
+            <div class="table-status-text" id="status-text-${i}">빈 테이블</div>
+            <div class="time-display" id="time-display-${i}"></div>
+          </div>
+          <button class="btn-checkout" onclick="checkoutTable(${i})">👋 퇴장 / 초기화</button>
+        `;
+        container.appendChild(card);
+      }
+      updateTimersUI();
+    }
+
+    function fetchOrders() {
+      fetch(`${CONFIG.GAS_URL}?action=kitchen`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.orders) {
+            syncCheckinsWithOrders(data.orders);
+            document.getElementById('sync-status').innerText = '실시간 수신 중';
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          document.getElementById('sync-status').innerText = '연결 확인 필요';
+        });
+    }
+
+    // 주문이 감지되면 자동으로 최초 착석 시간 기록
+    function syncCheckinsWithOrders(orders) {
+      let isUpdated = false;
+
+      orders.forEach(order => {
+        const match = String(order.table || '').match(/\d+/);
+        const tableNum = match ? parseInt(match[0], 10) : null;
+
+        if (tableNum && tableNum >= 1 && tableNum <= CONFIG.TOTAL_TABLES) {
+          // 아직 세션이 없는 빈 테이블에 주문이 들어오면 최초 착석 처리!
+          if (!tableSessions[tableNum]) {
+            const now = new Date();
+            tableSessions[tableNum] = {
+              checkinTime: now.toISOString(),
+              timeStr: order.time || `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+            };
+            isUpdated = true;
+          }
+        }
+      });
+
+      if (isUpdated) {
+        localStorage.setItem('qb_table_sessions', JSON.stringify(tableSessions));
+      }
+      updateTimersUI();
+    }
+
+    function updateTimersUI() {
+      const now = new Date();
+
+      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
+        const card = document.getElementById(`table-card-${i}`);
+        const statusText = document.getElementById(`status-text-${i}`);
+        const timeDisplay = document.getElementById(`time-display-${i}`);
+        const badgeBox = document.getElementById(`badge-box-${i}`);
+
+        const session = tableSessions[i];
+
+        if (!session) {
+          card.className = 'table-card';
+          statusText.innerText = '빈 테이블';
+          timeDisplay.innerHTML = '';
+          badgeBox.innerHTML = '';
+          continue;
+        }
+
+        // 착석 중인 테이블
+        card.className = 'table-card occupied';
+        statusText.innerText = '이용 중';
+
+        const startTime = new Date(session.checkinTime);
+        const diffMs = now - startTime;
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const hours = Math.floor(diffMinutes / 60);
+        const mins = diffMinutes % 60;
+
+        let timeClass = '';
+        badgeBox.innerHTML = '';
+
+        if (diffMinutes >= CONFIG.LIMIT_MINUTES_OVER) {
+          card.classList.add('warning-over');
+          timeClass = 'over';
+          badgeBox.innerHTML = '<span class="badge-over">🚨 2시간 초과</span>';
+        } else if (diffMinutes >= CONFIG.LIMIT_MINUTES_NEAR) {
+          card.classList.add('warning-near');
+          timeClass = 'near';
+        }
+
+        timeDisplay.innerHTML = `
+          <div class="entry-time">입장: ${session.timeStr}</div>
+          <div class="elapsed-time ${timeClass}">⏱ ${hours > 0 ? hours + '시간 ' : ''}${mins}분 이용 중</div>
+        `;
+      }
+    }
+
+    function checkoutTable(tableNum) {
+      if (confirm(`${tableNum}번 테이블을 퇴장(초기화) 처리하시겠습니까?`)) {
+        delete tableSessions[tableNum];
+        localStorage.setItem('qb_table_sessions', JSON.stringify(tableSessions));
+        updateTimersUI();
+      }
+    }
+  </script>
+</body>
+</html>
