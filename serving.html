@@ -1,661 +1,436 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>청춘주막 - 주방 KDS</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>무한해적상회 - 주문 관리 (주방/서빙)</title>
 
-    body {
-      background-color: #121212;
-      color: #ffffff;
-      padding: 15px;
-      user-select: none;
-    }
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #333;
-    }
-
-    .header h1 {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: #ff4d4d;
-    }
-
-    .header-controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .btn-filter-warning {
-      background-color: #333;
-      color: #ff4d4d;
-      border: 1px solid #ff4d4d;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-filter-warning.active {
-      background-color: #ff4d4d;
-      color: #fff;
-    }
-
-    .status {
-      font-size: 0.85rem;
-      color: #888;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      background-color: #2ec4b6;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .grid-container {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 10px;
-    }
-
-    @media (max-width: 600px) {
-      .grid-container {
-        grid-template-columns: repeat(5, 1fr);
-        gap: 6px;
+<!-- Tailwind CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper: '#F5EFDD',
+          ink: '#26221C',
+          flag: '#C23B22',
+          flagdark: '#9E2E19',
+          gold: '#C89B3C',
+          night: '#1F2A3C',
+          nightlight: '#2E3E56',
+          soju: '#4C7A5A',
+        },
+        fontFamily: {
+          display: ['"Black Han Sans"', 'sans-serif'],
+          body: ['"Noto Sans KR"', 'sans-serif'],
+        },
+        boxShadow: {
+          card: '0 2px 10px rgba(38,34,28,0.08)',
+          lift: '0 8px 24px rgba(38,34,28,0.18)',
+        }
       }
     }
+  }
+</script>
 
-    .table-card {
-      background-color: #1e1e1e;
-      border: 2px solid #333;
-      border-radius: 10px;
-      padding: 10px 8px;
-      min-height: 105px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      position: relative;
-    }
+<style>
+  body { font-family: 'Noto Sans KR', sans-serif; word-break: keep-all; }
+  .font-display { font-family: 'Black Han Sans', sans-serif; letter-spacing: 0.5px; }
+  ::-webkit-scrollbar { display: none; }
+  * { -ms-overflow-style: none; scrollbar-width: none; }
 
-    .table-card.active {
-      background-color: #2a1215;
-      border-color: #e63946;
-      box-shadow: 0 0 10px rgba(230, 57, 70, 0.4);
-    }
+  .flag-edge::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: -6px;
+    height: 8px;
+    background: linear-gradient(-45deg, transparent 4px, inherit 4px), linear-gradient(45deg, transparent 4px, inherit 4px);
+    background-size: 10px 10px;
+    background-repeat: repeat-x;
+  }
 
-    /* 30분 이상 경과 (주황불) */
-    .table-card.warning-near {
-      border-color: #ff9800 !important;
-      box-shadow: 0 0 10px rgba(255, 152, 0, 0.5);
-    }
+  @keyframes toastIn {
+    0% { transform: translate(-50%, 20px); opacity: 0; }
+    15% { transform: translate(-50%, 0); opacity: 1; }
+    85% { transform: translate(-50%, 0); opacity: 1; }
+    100% { transform: translate(-50%, 20px); opacity: 0; }
+  }
+  .toast-anim { animation: toastIn 1.8s ease-in-out both; }
 
-    /* 1시간 이상 경과 (빨간불 점멸) */
-    .table-card.warning-over {
-      background-color: #3a0d10 !important;
-      border-color: #ff0000 !important;
-      animation: blink-border 1.2s infinite alternate;
-    }
-
-    @keyframes blink-border {
-      0% { box-shadow: 0 0 5px #ff0000; border-color: #ff0000; }
-      100% { box-shadow: 0 0 18px #ff0000; border-color: #ff4d4d; }
-    }
-
-    .table-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-
-    .table-num {
-      font-size: 1.1rem;
-      font-weight: 800;
-      color: #ddd;
-    }
-
-    .table-card.active .table-num {
-      color: #ff6b6b;
-    }
-
-    .table-time {
-      font-size: 0.7rem;
-      color: #aaa;
-      text-align: right;
-    }
-
-    .elapsed-time {
-      display: block;
-      font-weight: bold;
-      font-size: 0.75rem;
-      margin-top: 1px;
-    }
-    .elapsed-time.over { color: #ff4d4d; }
-    .elapsed-time.near { color: #ff9800; }
-
-    .table-summary {
-      font-size: 0.8rem;
-      color: #bbb;
-      margin-top: 4px;
-      line-height: 1.2;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      word-break: break-all;
-    }
-
-    .table-card.active .table-summary {
-      color: #ffffff;
-      font-weight: 600;
-    }
-
-    .badge-group {
-      display: flex;
-      gap: 4px;
-      align-items: center;
-      margin-top: 4px;
-    }
-
-    .item-count-badge {
-      background-color: #e63946;
-      color: #fff;
-      font-size: 0.7rem;
-      padding: 2px 6px;
-      border-radius: 12px;
-      font-weight: bold;
-    }
-
-    .over-time-badge {
-      background-color: #ff0000;
-      color: #fff;
-      font-size: 0.68rem;
-      padding: 2px 6px;
-      border-radius: 12px;
-      font-weight: bold;
-      animation: blink-text 1s infinite alternate;
-    }
-
-    @keyframes blink-text {
-      0% { opacity: 0.6; }
-      100% { opacity: 1; }
-    }
-
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.75);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.2s ease;
-    }
-
-    .modal-overlay.open {
-      opacity: 1;
-      visibility: visible;
-    }
-
-    .modal-content {
-      background-color: #242424;
-      border-radius: 14px;
-      width: 90%;
-      max-width: 440px;
-      max-height: 80vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-      border: 1px solid #444;
-    }
-
-    .modal-header {
-      background-color: #8b0000;
-      padding: 14px 18px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: #fff;
-    }
-
-    .modal-title {
-      font-size: 1.1rem;
-      font-weight: bold;
-    }
-
-    .btn-close {
-      background: none;
-      border: none;
-      color: #fff;
-      font-size: 1.4rem;
-      cursor: pointer;
-    }
-
-    .modal-body {
-      padding: 16px;
-      overflow-y: auto;
-      flex: 1;
-    }
-
-    .item-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .item-card {
-      background-color: #333;
-      padding: 12px 14px;
-      border-radius: 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .item-info {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .item-name {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #fff;
-    }
-
-    .item-qty {
-      background-color: #f1f2f6;
-      color: #2f3542;
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      font-weight: bold;
-    }
-
-    .modal-footer {
-      padding: 14px 16px;
-      background-color: #1c1c1c;
-      border-top: 1px solid #333;
-    }
-
-    .btn-all-complete {
-      width: 100%;
-      background-color: #2e7d32;
-      color: #fff;
-      border: none;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    .btn-complete {
-      background-color: #2563eb;
-      color: #fff;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      font-weight: bold;
-      cursor: pointer;
-    }
-  </style>
+  @keyframes pulseSubtle {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
+  .pulse-new { animation: pulseSubtle 1.5s infinite; }
+</style>
 </head>
-<body>
 
-  <div class="header">
-    <h1>👨‍🍳 주방 현황판 (KDS)</h1>
-    <div class="header-controls">
-      <button class="btn-filter-warning" id="btn-filter" onclick="toggleOverTimeFilter()">⚠️ 1시간 초과만 보기</button>
-      <div class="status">
-        <span class="status-dot"></span>
-        <span id="sync-status">연결 중...</span>
-      </div>
+<body class="bg-paper text-ink min-h-screen pb-12">
+
+<!-- ============ 헤더 ============ -->
+<header class="relative bg-flag flag-edge text-paper pt-5 pb-6 px-4 mb-4">
+  <div class="max-w-6xl mx-auto flex items-center justify-between gap-3">
+    <div>
+      <p class="text-[10px] tracking-widest text-paper/70 mb-0.5">2026 7단대 연합축제 · Master7iece</p>
+      <h1 class="font-display text-xl sm:text-2xl leading-snug">☠️ 무한해적상회주문 관리 시스템</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="sound-toggle-btn" class="bg-paper/20 hover:bg-paper/30 text-paper font-bold text-xs px-3 py-2 rounded-lg transition-colors flex items-center gap-1">
+        <span id="sound-icon">🔊</span> <span id="sound-text">소리 켜짐</span>
+      </button>
+      <button id="refresh-btn" class="bg-night text-paper font-bold text-xs px-3 py-2 rounded-lg shadow-card hover:bg-nightlight transition-colors">
+        🔄 새로고침
+      </button>
     </div>
   </div>
+</header>
 
-  <div class="grid-container" id="grid-container"></div>
+<!-- ============ 메인 컨테이너 ============ -->
+<main class="max-w-6xl mx-auto px-4 space-y-4">
 
-  <div class="modal-overlay" id="modal-overlay">
-    <div class="modal-content">
-      <div class="modal-header">
-        <div class="modal-title" id="modal-title">테이블 0</div>
-        <button class="btn-close" onclick="closeModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div id="modal-time-info" style="font-size:0.85rem; color:#ff9800; margin-bottom:12px; font-weight:bold;"></div>
-        <ul class="item-list" id="modal-item-list"></ul>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-all-complete" onclick="completeAllTableItems()">테이블 전체 완료</button>
-      </div>
+  <!-- 필터 탭 & 요약 통계 -->
+  <section class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl shadow-card">
+    <div id="filter-tabs" class="flex gap-1.5 overflow-x-auto">
+      <button data-status="ALL" class="filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-flag text-paper">전체</button>
+      <button data-status="ORDERED" class="filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-transparent text-ink/50 border border-ink/15">주문접수</button>
+      <button data-status="COOKED" class="filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-transparent text-ink/50 border border-ink/15">조리완료</button>
+      <button data-status="SERVED" class="filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-transparent text-ink/50 border border-ink/15">서빙완료</button>
     </div>
+    <div class="text-xs text-ink/60 font-bold flex gap-3 self-end sm:self-center">
+      <span>대기 중: <strong id="count-pending" class="text-flag font-display text-sm">0</strong>건</span>
+      <span>|</span>
+      <span>총 주문: <strong id="count-total" class="font-display text-sm">0</strong>건</span>
+    </div>
+  </section>
+
+  <!-- 주문 카드 리스트 Grid -->
+  <section id="orders-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <!-- 주문 카드가 동적으로 삽입됩니다 -->
+  </section>
+
+  <!-- 주문 없음 표시 -->
+  <div id="empty-state" class="hidden py-16 text-center">
+    <p class="text-4xl mb-2">🍺</p>
+    <p class="font-display text-lg text-ink/60">접수된 주문이 없습니다</p>
   </div>
+</main>
 
-  <script>
-    const CONFIG = {
-      GAS_URL: 'https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec', 
-      TOTAL_TABLES: 35,
-      REFRESH_INTERVAL: 4000,
-      WARN_MINUTES_NEAR: 30,  // 30분 경과 시 주황불
-      WARN_MINUTES_OVER: 60   // 1시간 경과 시 빨간불
+<!-- ============ 토스트 알림 ============ -->
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-ink text-paper text-xs font-bold px-4 py-2.5 rounded-full shadow-lift whitespace-nowrap"></div>
+
+<script>
+/* =========================================================
+   설정값 — 앱스프립트 URL을 입력하세요
+   ========================================================= */
+const CONFIG = {
+  SCRIPT_URL: "https://script.google.com/macros/s/AKfycby9p8Om4wxPwmf_2-fZe6pFkuPPVfsNWfKgVvQtzp_p9I4z2JEd_gRk658s0HPrVhUR/exec",
+  POLLING_INTERVAL: 7000, // 7초마다 자동 새로고침
+};
+
+/* =========================================================
+   상태 관리
+   ========================================================= */
+const state = {
+  orders: [],
+  currentFilter: 'ALL',
+  soundEnabled: true,
+  knownOrderIds: new Set(),
+  isFirstLoad: true,
+};
+
+const $ = (id) => document.getElementById(id);
+const won = (n) => Number(n).toLocaleString('ko-KR') + '원';
+
+/* 오디오 설정 (웹 오디오 API로 알림음 생성) */
+function playAlertSound() {
+  if (!state.soundEnabled) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15); // A5
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch (e) {
+    console.error("Audio error", e);
+  }
+}
+
+/* =========================================================
+   초기화 및 데이터 로드
+   ========================================================= */
+async function init() {
+  bindEvents();
+  await fetchOrders();
+  setInterval(fetchOrders, CONFIG.POLLING_INTERVAL);
+}
+
+async function fetchOrders() {
+  try {
+    const res = await fetch(`${CONFIG.SCRIPT_URL}?action=getOrders`);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || '주문 목록 로드 실패');
+
+    const newOrders = data.orders || [];
+    
+    // 신규 주문 감지
+    if (!state.isFirstLoad) {
+      const hasNew = newOrders.some(o => !state.knownOrderIds.has(o.orderNumber) && (o.status === 'ORDERED' || o.status === '주문접수'));
+      if (hasNew) {
+        playAlertSound();
+        showToast("🔔 새로운 주문이 들어왔습니다!");
+      }
+    }
+
+    state.orders = newOrders;
+    state.knownOrderIds = new Set(newOrders.map(o => o.orderNumber));
+    state.isFirstLoad = false;
+
+    renderOrders();
+  } catch (err) {
+    console.error(err);
+    showToast("주문 데이터를 불러오는데 실패했습니다");
+  }
+}
+
+/* =========================================================
+   주문 목록 렌더링
+   ========================================================= */
+function renderOrders() {
+  const grid = $('orders-grid');
+  grid.innerHTML = '';
+
+  let filtered = state.orders;
+  if (state.currentFilter !== 'ALL') {
+    filtered = state.orders.filter(o => mapStatusKey(o.status) === state.currentFilter);
+  }
+
+  // 통계 업데이트
+  const pendingCount = state.orders.filter(o => mapStatusKey(o.status) === 'ORDERED').length;
+  $('count-pending').textContent = pendingCount;
+  $('count-total').textContent = state.orders.length;
+
+  if (filtered.length === 0) {
+    $('empty-state').classList.remove('hidden');
+    return;
+  }
+  $('empty-state').classList.add('hidden');
+
+  // 최신 주문이 위로 오도록 정렬
+  filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  filtered.forEach(order => {
+    const statusKey = mapStatusKey(order.status);
+    const card = document.createElement('div');
+    
+    // 상태별 카드 테두리 및 배경 설정
+    let statusStyle = "";
+    let badgeStyle = "";
+    let badgeText = "";
+
+    if (statusKey === 'ORDERED') {
+      statusStyle = "border-2 border-flag bg-white pulse-new";
+      badgeStyle = "bg-flag text-paper";
+      badgeText = "주문접수";
+    } else if (statusKey === 'COOKED') {
+      statusStyle = "border-2 border-gold bg-white";
+      badgeStyle = "bg-gold text-ink font-bold";
+      badgeText = "조리완료";
+    } else { // SERVED
+      statusStyle = "border border-ink/10 bg-white/60 opacity-75";
+      badgeStyle = "bg-night/20 text-ink/60";
+      badgeText = "서빙완료";
+    }
+
+    card.className = `rounded-xl shadow-card p-4 flex flex-col justify-between transition-all ${statusStyle}`;
+
+    // 주문 메뉴 항목 HTML 생성
+    const itemsHtml = (order.items || []).map(item => `
+      <div class="flex justify-between items-center text-sm py-1 border-b border-ink/5 last:border-0">
+        <span class="font-bold text-ink">${escapeHtml(item.name)}</span>
+        <span class="font-display text-flag ml-2">x${item.qty}</span>
+      </div>
+    `).join('');
+
+    card.innerHTML = `
+      <div>
+        <div class="flex items-center justify-between pb-2 mb-2 border-b border-ink/10">
+          <div class="flex items-center gap-2">
+            <span class="bg-night text-gold font-display text-lg px-2.5 py-0.5 rounded-lg">
+              테이블 ${order.table}
+            </span>
+            <span class="text-xs text-ink/40 font-mono">#${order.orderNumber}</span>
+          </div>
+          <span class="text-xs font-bold px-2 py-1 rounded-md ${badgeStyle}">
+            ${badgeText}
+          </span>
+        </div>
+
+        <div class="space-y-0.5 my-3">
+          ${itemsHtml}
+        </div>
+      </div>
+
+      <div class="pt-3 mt-2 border-t border-ink/10">
+        <div class="flex justify-between items-center mb-3 text-xs text-ink/60">
+          <span>총 금액: <strong class="text-ink font-bold text-sm">${won(order.totalAmount || 0)}</strong></span>
+          <span>${formatTime(order.createdAt)}</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          ${renderActionButtons(order.orderNumber, statusKey)}
+        </div>
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+}
+
+/* 상태 키 정규화 */
+function mapStatusKey(status) {
+  if (status === 'ORDERED' || status === '주문접수') return 'ORDERED';
+  if (status === 'COOKED' || status === '조리완료' || status === '출고') return 'COOKED';
+  if (status === 'SERVED' || status === '서빙완료') return 'SERVED';
+  return 'ORDERED';
+}
+
+/* 상태별 작업 버튼 생성 */
+function renderActionButtons(orderNumber, statusKey) {
+  if (statusKey === 'ORDERED') {
+    return `
+      <button onclick="updateOrderStatus('${orderNumber}', 'COOKED')" 
+        class="col-span-2 bg-flag text-paper font-display text-sm py-2.5 rounded-lg shadow-sm hover:bg-flagdark active:scale-[0.98] transition-all">
+        🍳 조리완료 처리
+      </button>
+    `;
+  } else if (statusKey === 'COOKED') {
+    return `
+      <button onclick="updateOrderStatus('${orderNumber}', 'ORDERED')" 
+        class="bg-ink/10 text-ink/70 font-bold text-xs py-2 rounded-lg hover:bg-ink/20">
+        ↩️ 접수로 되돌리기
+      </button>
+      <button onclick="updateOrderStatus('${orderNumber}', 'SERVED')" 
+        class="bg-soju text-paper font-display text-sm py-2 rounded-lg shadow-sm active:scale-[0.98] transition-all">
+        🍺 서빙완료
+      </button>
+    `;
+  } else {
+    return `
+      <button onclick="updateOrderStatus('${orderNumber}', 'COOKED')" 
+        class="col-span-2 bg-ink/10 text-ink/60 font-bold text-xs py-2 rounded-lg hover:bg-ink/20">
+        ↩️ 조리완료로 되돌리기
+      </button>
+    `;
+  }
+}
+
+/* =========================================================
+   주문 상태 변경 요청
+   ========================================================= */
+async function updateOrderStatus(orderNumber, nextStatus) {
+  try {
+    // UI 즉시 반영 (낙관적 업데이트)
+    const target = state.orders.find(o => o.orderNumber === orderNumber);
+    if (target) {
+      target.status = nextStatus;
+      renderOrders();
+    }
+
+    const payload = {
+      action: 'updateStatus',
+      orderNumber: orderNumber,
+      status: nextStatus
     };
 
-    let currentActiveOrders = {};
-    let selectedTableNum = null;
-    let isFilterOverTime = false;
+    const res = await fetch(CONFIG.SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
 
-    window.onload = function() {
-      renderTableGrid();
-      fetchKitchenOrders();
-      setInterval(fetchKitchenOrders, CONFIG.REFRESH_INTERVAL);
-      setInterval(updateTimesUI, 10000);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || '상태 변경 실패');
+
+    showToast("주문 상태가 변경되었습니다");
+    fetchOrders(); // 동기화
+  } catch (err) {
+    console.error(err);
+    showToast("상태 변경에 실패했습니다");
+    fetchOrders(); // 실패 시 원복
+  }
+}
+
+/* =========================================================
+   유틸리티 & 이벤트
+   ========================================================= */
+function bindEvents() {
+  // 필터 탭 클릭
+  document.querySelectorAll('.filter-tab').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.filter-tab').forEach(b => {
+        b.className = 'filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-transparent text-ink/50 border border-ink/15';
+      });
+      btn.className = 'filter-tab px-3 py-1.5 rounded-full font-bold text-xs bg-flag text-paper';
+      state.currentFilter = btn.dataset.status;
+      renderOrders();
     };
+  });
 
-    function renderTableGrid() {
-      const container = document.getElementById('grid-container');
-      container.innerHTML = '';
+  // 새로고침 버튼
+  $('refresh-btn').onclick = () => {
+    showToast("주문 목록을 갱신합니다");
+    fetchOrders();
+  };
 
-      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
-        const card = document.createElement('div');
-        card.className = 'table-card';
-        card.id = `table-box-${i}`;
-        card.onclick = () => openModal(i);
+  // 음소거 토글
+  $('sound-toggle-btn').onclick = () => {
+    state.soundEnabled = !state.soundEnabled;
+    $('sound-icon').textContent = state.soundEnabled ? '🔊' : '🔇';
+    $('sound-text').textContent = state.soundEnabled ? '소리 켜짐' : '음소거';
+    showToast(state.soundEnabled ? "알림음이 켜졌습니다" : "알림음이 꺼졌습니다");
+  };
+}
 
-        card.innerHTML = `
-          <div class="table-header">
-            <span class="table-num">${i}</span>
-            <div class="table-time" id="table-time-${i}"></div>
-          </div>
-          <div class="table-summary" id="table-summary-${i}">빈 테이블</div>
-          <div class="badge-group" id="table-badge-${i}"></div>
-        `;
-        container.appendChild(card);
-      }
-    }
+function formatTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return isoStr;
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
 
-    function fetchKitchenOrders() {
-      fetch(`${CONFIG.GAS_URL}?action=kitchen`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.orders) {
-            processOrders(data.orders);
-            document.getElementById('sync-status').innerText = '실시간 수신 중';
-          }
-        })
-        .catch(err => {
-          console.error('주문 불러오기 오류:', err);
-          document.getElementById('sync-status').innerText = '연결 확인 필요';
-        });
-    }
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
 
-    function parseOrderDate(timeStr) {
-      if (!timeStr) return new Date();
-      const now = new Date();
-      const parts = timeStr.split(':');
-      if (parts.length >= 2) {
-        now.setHours(parseInt(parts[0], 10));
-        now.setMinutes(parseInt(parts[1], 10));
-        now.setSeconds(0);
-      }
-      return now;
-    }
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  t.classList.remove('toast-anim');
+  void t.offsetWidth;
+  t.classList.add('toast-anim');
+  setTimeout(() => t.classList.add('hidden'), 1800);
+}
 
-    function processOrders(orders) {
-      currentActiveOrders = {}; 
-
-      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
-        const box = document.getElementById(`table-box-${i}`);
-        if (box) {
-          box.className = 'table-card';
-          document.getElementById(`table-summary-${i}`).innerText = '빈 테이블';
-          document.getElementById(`table-time-${i}`).innerText = '';
-          document.getElementById(`table-badge-${i}`).innerHTML = '';
-        }
-      }
-
-      orders.forEach(order => {
-        const rawTable = String(order.table || '');
-        const match = rawTable.match(/\d+/);
-        const tableNum = match ? parseInt(match[0], 10) : null;
-        
-        if (tableNum && tableNum >= 1 && tableNum <= CONFIG.TOTAL_TABLES) {
-          const validItems = (order.items || []).filter(item => {
-            const name = String(item.name || '').trim();
-            return !name.startsWith("인원") && !name.includes("인원수");
-          });
-
-          if (validItems.length === 0) return;
-
-          if (!currentActiveOrders[tableNum]) {
-            currentActiveOrders[tableNum] = {
-              table: tableNum,
-              firstTimeStr: order.time,
-              firstTimeObj: parseOrderDate(order.time),
-              orderNumbers: [order.orderNumber],
-              items: []
-            };
-          } else {
-            if (!currentActiveOrders[tableNum].orderNumbers.includes(order.orderNumber)) {
-              currentActiveOrders[tableNum].orderNumbers.push(order.orderNumber);
-            }
-          }
-
-          validItems.forEach(newItem => {
-            const qty = parseInt(newItem.qty || 1, 10);
-            const existingItem = currentActiveOrders[tableNum].items.find(i => i.name === newItem.name);
-
-            if (existingItem) {
-              existingItem.qty += qty;
-              existingItem.rowNums.push(newItem.rowNum);
-              if (!existingItem.orderIds.includes(order.orderNumber)) {
-                existingItem.orderIds.push(order.orderNumber);
-              }
-            } else {
-              currentActiveOrders[tableNum].items.push({
-                name: newItem.name,
-                qty: qty,
-                rowNums: [newItem.rowNum],
-                orderIds: [order.orderNumber]
-              });
-            }
-          });
-        }
-      });
-
-      updateTimesUI();
-
-      if (selectedTableNum) {
-        if (currentActiveOrders[selectedTableNum]) {
-          renderModalContent(currentActiveOrders[selectedTableNum]);
-        } else {
-          closeModal();
-        }
-      }
-    }
-
-    function updateTimesUI() {
-      const now = new Date();
-
-      for (let i = 1; i <= CONFIG.TOTAL_TABLES; i++) {
-        const box = document.getElementById(`table-box-${i}`);
-        const tableData = currentActiveOrders[i];
-
-        if (!tableData || !tableData.items || tableData.items.length === 0) {
-          if (box) box.style.display = isFilterOverTime ? 'none' : 'flex';
-          continue;
-        }
-
-        const diffMs = now - tableData.firstTimeObj;
-        const diffMinutes = Math.floor(diffMs / (1000 * 60));
-        const hours = Math.floor(diffMinutes / 60);
-        const mins = diffMinutes % 60;
-        const formattedElapsed = `${hours > 0 ? hours + '시간 ' : ''}${mins}분 경과`;
-
-        box.classList.add('active');
-        box.classList.remove('warning-near', 'warning-over');
-
-        let isOver = false;
-        let elapsedClass = '';
-
-        if (diffMinutes >= CONFIG.WARN_MINUTES_OVER) {
-          box.classList.add('warning-over');
-          elapsedClass = 'over';
-          isOver = true;
-        } else if (diffMinutes >= CONFIG.WARN_MINUTES_NEAR) {
-          box.classList.add('warning-near');
-          elapsedClass = 'near';
-        }
-
-        if (isFilterOverTime && !isOver) {
-          box.style.display = 'none';
-        } else {
-          box.style.display = 'flex';
-        }
-
-        const firstItem = tableData.items[0].name;
-        const totalQty = tableData.items.reduce((sum, item) => sum + item.qty, 0);
-        const summaryText = tableData.items.length > 1 
-          ? `${firstItem} 외 ${tableData.items.length - 1}건` 
-          : `${firstItem} ${tableData.items[0].qty}개`;
-
-        document.getElementById(`table-summary-${i}`).innerText = summaryText;
-        document.getElementById(`table-time-${i}`).innerHTML = `
-          <span>주문: ${tableData.firstTimeStr}</span>
-          <span class="elapsed-time ${elapsedClass}">⏱ ${formattedElapsed}</span>
-        `;
-
-        let badgeHtml = `<span class="item-count-badge">${totalQty}개 메뉴</span>`;
-        if (isOver) {
-          badgeHtml += `<span class="over-time-badge">🚨 1시간 지연</span>`;
-        }
-        document.getElementById(`table-badge-${i}`).innerHTML = badgeHtml;
-      }
-    }
-
-    function toggleOverTimeFilter() {
-      isFilterOverTime = !isFilterOverTime;
-      const btn = document.getElementById('btn-filter');
-      btn.classList.toggle('active', isFilterOverTime);
-      btn.innerText = isFilterOverTime ? '📋 전체 보기' : '⚠️ 1시간 지연만 보기';
-      updateTimesUI();
-    }
-
-    function openModal(tableNum) {
-      const tableData = currentActiveOrders[tableNum];
-      if (!tableData || !tableData.items || tableData.items.length === 0) return;
-
-      selectedTableNum = tableNum;
-      renderModalContent(tableData);
-      document.getElementById('modal-overlay').classList.add('open');
-    }
-
-    function closeModal() {
-      selectedTableNum = null;
-      document.getElementById('modal-overlay').classList.remove('open');
-    }
-
-    function renderModalContent(tableData) {
-      const now = new Date();
-      const diffMs = now - tableData.firstTimeObj;
-      const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-      document.getElementById('modal-title').innerText = `테이블 ${tableData.table}`;
-      document.getElementById('modal-time-info').innerText = `최초 주문: ${tableData.firstTimeStr} (조리 지연: ${diffMinutes}분 경과)`;
-
-      const modalItemList = document.getElementById('modal-item-list');
-      modalItemList.innerHTML = '';
-
-      tableData.items.forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'item-card';
-        
-        const rowNumsJson = JSON.stringify(item.rowNums);
-        const orderIdsJson = JSON.stringify(item.orderIds);
-
-        li.innerHTML = `
-          <div class="item-info">
-            <span class="item-name">${item.name}</span>
-            <span class="item-qty">${item.qty}개</span>
-          </div>
-          <button class="btn-complete" onclick='completeMergedItem(${rowNumsJson}, ${orderIdsJson})'>
-            ✔ 출고
-          </button>
-        `;
-        modalItemList.appendChild(li);
-      });
-    }
-
-    function completeMergedItem(rowNums, orderIds) {
-      const promises = rowNums.map((rowNum, idx) => {
-        return fetch(CONFIG.GAS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            action: 'completeItem',
-            rowNum: rowNum,
-            orderId: orderIds[idx] || orderIds[0]
-          })
-        });
-      });
-
-      Promise.all(promises).then(() => {
-        fetchKitchenOrders();
-      }).catch(err => console.error("출고 오류:", err));
-    }
-
-    function completeAllTableItems() {
-      if (!selectedTableNum || !currentActiveOrders[selectedTableNum]) return;
-
-      const orderNumbers = currentActiveOrders[selectedTableNum].orderNumbers;
-      
-      const promises = orderNumbers.map(orderNum => {
-        return fetch(CONFIG.GAS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            action: 'completeCooking',
-            orderNumber: orderNum
-          })
-        });
-      });
-
-      Promise.all(promises).then(() => {
-        closeModal();
-        fetchKitchenOrders();
-      }).catch(err => console.error("전체 완료 오류:", err));
-    }
-  </script>
+// 실행
+init();
+</script>
 </body>
 </html>
